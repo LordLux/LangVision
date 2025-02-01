@@ -1,0 +1,59 @@
+﻿<Window x:Class="LangVision.SelectionOverlay"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" 
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        WindowState="Maximized"
+        MouseDown="Window_MouseDown"
+        MouseMove="Window_MouseMove"
+        MouseUp="Window_MouseUp">
+
+    <Window.Resources>
+        <!-- Smooth Easing Function -->
+        <QuadraticEase x:Key="SmoothEasing" EasingMode="EaseInOut"/>
+
+        <!-- Fade In Animation (Targets the Rectangle Opacity) -->
+        <Storyboard x:Key="FadeInAnimation">
+            <DoubleAnimation Storyboard.TargetName="OverlayBackground"
+                         Storyboard.TargetProperty="Opacity"
+                         From="0" To="0.5"
+                         Duration="0:0:0.3"
+                         EasingFunction="{StaticResource SmoothEasing}"/>
+        </Storyboard>
+
+        <!-- Fade Out Animation (Targets the Rectangle Opacity) -->
+        <Storyboard x:Key="FadeOutAnimation">
+            <DoubleAnimation Storyboard.TargetName="OverlayBackground"
+                         Storyboard.TargetProperty="Opacity"
+                         From="0.5" To="0"
+                         Duration="0:0:0.3"
+                         EasingFunction="{StaticResource SmoothEasing}"
+                         Completed="FadeOutAnimation_Completed"/>
+        </Storyboard>
+    </Window.Resources>
+
+    <Grid Name="OverlayGrid">
+        <!-- Frozen screen image in bg -->
+        <Image Name="FrozenScreenImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+
+        <!-- Translated image overlay (Initially hidden) -->
+        <Image Name="TranslatedImage" Visibility="Hidden" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+
+        <!-- Semi-transparent overlay using the animated brush -->
+        <Rectangle Name="OverlayBackground" Fill="Black" Opacity="0.5" Width="Auto" Height="Auto"/>
+
+        <!-- Small top UI -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#222">
+            <ComboBox Name="InputLang" Width="100" Margin="5"/>
+            <ComboBox Name="OutputLang" Width="100" Margin="5"/>
+            <CheckBox Name="UseAiTranslation" Content="AI Translation" Foreground="White" Margin="5"/>
+        </StackPanel>
+
+        <!-- Region Selection -->
+        <Canvas Name="SelectionCanvas">
+            <Rectangle Name="SelectionRectangle" Stroke="#b3dfff" StrokeThickness="2" Fill="#40b3dfff" Visibility="Hidden"/>
+        </Canvas>
+    </Grid>
+</Window>
