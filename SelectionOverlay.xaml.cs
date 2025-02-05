@@ -111,56 +111,60 @@ namespace LangVision {
         }
 
         // Finished region selection
+        // In SelectionOverlay.xaml.cs, update the Window_MouseUp method:
+        // In SelectionOverlay.xaml.cs:
         private async void Window_MouseUp(object sender, MouseButtonEventArgs e) {
             if (isSelecting) {
                 isSelecting = false;
                 endPoint = e.GetPosition(this);
 
-                // Convert WPF coordinates to screen coordinates
                 var source = PresentationSource.FromVisual(this);
-
                 if (source == null) {
                     CheckIfClosing();
                     return;
                 }
+
+                // Get DPI info
                 var transformToDevice = source.CompositionTarget.TransformToDevice;
                 var transformFromDevice = source.CompositionTarget.TransformFromDevice;
 
-                var transform = source.CompositionTarget.TransformToDevice;
-                var startPointScreen = transform.Transform(startPoint);
-                var endPointScreen = transform.Transform(endPoint);
+                // Transform to screen coordinates
+                var startPointScreen = transformToDevice.Transform(startPoint);
+                var endPointScreen = transformToDevice.Transform(endPoint);
 
-                int x = (int)Math.Min(startPointScreen.X, endPointScreen.X) - Capture.xMargin;
-                int y = (int)Math.Min(startPointScreen.Y, endPointScreen.Y) - Capture.yMargin;
+                // Calculate region dimensions
+                int x = (int)Math.Min(startPointScreen.X, endPointScreen.X);
+                int y = (int)Math.Min(startPointScreen.Y, endPointScreen.Y);
                 int width = (int)Math.Abs(startPointScreen.X - endPointScreen.X);
                 int height = (int)Math.Abs(startPointScreen.Y - endPointScreen.Y);
 
-                SelectedRegion = new System.Drawing.Rectangle(x, y, width, height);
+                // Store the selected region with margin adjustment
+                SelectedRegion = new System.Drawing.Rectangle(
+                    x - Capture.xMargin,
+                    y - Capture.yMargin,
+                    width,
+                    height
+                );
 
                 SelectionRectangle.Visibility = Visibility.Hidden;
-                ApplyGradientOverlay();
 
-                // OCR & translation process
+                // Process the region and get only the translated overlay
                 var translatedImage = await Processing.ProcessRegionAndReturnImage(SelectedRegion, "auto", "es");
 
-                // Apply the translated image ON TOP of the frozen image
                 if (translatedImage != null) {
                     TranslatedImage.Source = ConvertBitmapToImageSource(translatedImage);
                     TranslatedImage.Visibility = Visibility.Visible;
 
-                    // 🟢 Fix Positioning with DPI-Adjusted Margin
-                    var screenToWpf = source.CompositionTarget.TransformFromDevice;
-                    var wpfOrigin = screenToWpf.Transform(new System.Windows.Point(SelectedRegion.X, SelectedRegion.Y));
+                    // Transform back to WPF coordinates for positioning
+                    var wpfPoint = transformFromDevice.Transform(new System.Windows.Point(x, y));
 
-                    // **FIX: Explicitly apply scaling correction**
-                    double dpiScaleX = transformToDevice.M11;
-                    double dpiScaleY = transformToDevice.M22;
+                    // Position the translation overlay
+                    Canvas.SetLeft(TranslatedImage, wpfPoint.X);
+                    Canvas.SetTop(TranslatedImage, wpfPoint.Y);
 
-                    TranslatedImage.Margin = new Thickness(
-                        wpfOrigin.X / dpiScaleX,  // Correct X position
-                        wpfOrigin.Y / dpiScaleY,  // Correct Y position
-                        0, 0
-                    );
+                    // Set size with DPI adjustment
+                    TranslatedImage.Width = width / transformToDevice.M11;
+                    TranslatedImage.Height = height / transformToDevice.M22;
                 }
             }
         }

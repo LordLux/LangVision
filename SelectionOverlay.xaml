@@ -38,22 +38,35 @@
         <!-- Frozen screen image in bg -->
         <Image Name="FrozenScreenImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
 
-        <!-- Translated image overlay (Initially hidden) -->
-        <Image Name="TranslatedImage" Visibility="Hidden" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+        <!-- Semi-transparent overlay -->
+        <Rectangle Name="OverlayBackground" Fill="Black" Opacity="0.5"/>
 
-        <!-- Semi-transparent overlay using the animated brush -->
-        <Rectangle Name="OverlayBackground" Fill="Black" Opacity="0.5" Width="Auto" Height="Auto"/>
+        <!-- Selection and translation layer -->
+        <Canvas Name="SelectionCanvas" 
+                Panel.ZIndex="1">
+            <!-- Selection rectangle while dragging -->
+            <Rectangle Name="SelectionRectangle" 
+                      Stroke="#b3dfff" 
+                      StrokeThickness="2" 
+                      Fill="#40b3dfff" 
+                      Visibility="Hidden"/>
 
-        <!-- Small top UI -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#222">
+            <!-- Translated text overlay (only shows the text, not the captured region) -->
+            <Image Name="TranslatedImage" 
+                   Visibility="Hidden" 
+                   Stretch="None" 
+                   RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+        </Canvas>
+
+        <!-- Top UI layer -->
+        <StackPanel Orientation="Horizontal" 
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Top" 
+                    Background="#222" 
+                    Panel.ZIndex="2">
             <ComboBox Name="InputLang" Width="100" Margin="5"/>
             <ComboBox Name="OutputLang" Width="100" Margin="5"/>
             <CheckBox Name="UseAiTranslation" Content="AI Translation" Foreground="White" Margin="5"/>
         </StackPanel>
-
-        <!-- Region Selection -->
-        <Canvas Name="SelectionCanvas">
-            <Rectangle Name="SelectionRectangle" Stroke="#b3dfff" StrokeThickness="2" Fill="#40b3dfff" Visibility="Hidden"/>
-        </Canvas>
     </Grid>
 </Window>
