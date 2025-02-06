@@ -44,18 +44,19 @@
         <!-- Selection and translation layer -->
         <Canvas Name="SelectionCanvas" 
                 Panel.ZIndex="1">
-            <!-- Selection rectangle while dragging -->
-            <Rectangle Name="SelectionRectangle" 
-                      Stroke="#b3dfff" 
-                      StrokeThickness="2" 
-                      Fill="#40b3dfff" 
-                      Visibility="Hidden"/>
-
             <!-- Translated text overlay (only shows the text, not the captured region) -->
             <Image Name="TranslatedImage" 
-                   Visibility="Hidden" 
-                   Stretch="None" 
-                   RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                       Visibility="Hidden" 
+                       Stretch="None" 
+                       RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+            <!-- Selection rectangle while dragging -->
+            <Rectangle Name="SelectionRectangle" 
+                       Stroke="#b3dfff" 
+                       StrokeThickness="2" 
+                       Fill="#40b3dfff" 
+                       Visibility="Hidden"/>
+
+            
         </Canvas>
 
         <!-- Top UI layer -->

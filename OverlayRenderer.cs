@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Drawing.Text;
 
 namespace LangVision {
     internal static class OverlayRenderer {
-        // Constants for font sizing
-        private const float MIN_FONT_SIZE = 12.0f;
+        private const float MIN_FONT_SIZE = 8.0f;
         private const float MAX_FONT_SIZE = 72.0f;
-        private const float DEFAULT_FONT_SIZE = 16.0f;
+        private const float INITIAL_SIZE_RATIO = 0.9f;
+        private const float WIDTH_MARGIN = 0.98f; // Allow text to use 98% of the box width
 
         /// <summary>
         /// Draws translated text on top of the frozen screen capture.
@@ -18,88 +19,105 @@ namespace LangVision {
             Bitmap overlayImage = new Bitmap(baseImage);
 
             using (Graphics g = Graphics.FromImage(overlayImage)) {
-                // Enable high quality rendering
+                // Enable high quality text rendering
                 g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
 
                 foreach (var text in translatedTexts) {
                     if (!IsValidBoundingBox(text.BoundingBox)) continue;
-                    DrawTextWithBackground(g, text.TranslatedTextValue ?? "", text.BoundingBox);
+                    DrawTextWithOptimalFit(g, text.TranslatedTextValue ?? "", text.BoundingBox);
                 }
             }
             return overlayImage;
         }
 
-        /// <summary>
-        /// Validates if a bounding box is usable for text rendering
-        /// </summary>
         private static bool IsValidBoundingBox(Rectangle box) {
             return box.Width > 0 && box.Height > 0 &&
-                   box.Width < 10000 && box.Height < 10000; // Reasonable maximum size
+                   box.Width < 10000 && box.Height < 10000;
         }
 
         /// <summary>
-        /// Calculates an appropriate font size based on the bounding box dimensions
+        /// Calculates the optimal font size to fit text within the given bounds
         /// </summary>
-        private static float CalculateFontSize(Graphics g, string text, Rectangle boundingBox) {
-            // Start with a size proportional to the box height but with safe limits
-            float fontSize = Math.Max(MIN_FONT_SIZE,
-                Math.Min(MAX_FONT_SIZE, boundingBox.Height * 0.7f));
+        private static float CalculateOptimalFontSize(Graphics g, string text, Rectangle bounds) {
+            float fontSize = bounds.Height * INITIAL_SIZE_RATIO;
+            fontSize = Math.Min(MAX_FONT_SIZE, fontSize);
 
-            // Create test font
-            using (var testFont = new Font("Arial", fontSize, FontStyle.Bold, GraphicsUnit.Pixel)) {
-                SizeF textSize = g.MeasureString(text, testFont);
+            // Binary search for the optimal font size
+            float minSize = MIN_FONT_SIZE;
+            float maxSize = fontSize;
+            float optimalSize = fontSize;
 
-                // If text is too wide, scale down the font size proportionally
-                if (textSize.Width > boundingBox.Width) {
-                    float scaleFactor = boundingBox.Width / textSize.Width;
-                    fontSize *= scaleFactor;
-                    fontSize = Math.Max(MIN_FONT_SIZE, Math.Min(MAX_FONT_SIZE, fontSize));
+            while (maxSize - minSize > 0.5f) {
+                float currentSize = (minSize + maxSize) / 2;
+                using (var font = new Font("Arial", currentSize, FontStyle.Bold, GraphicsUnit.Pixel)) {
+                    SizeF textSize = g.MeasureString(text, font);
+                    if (textSize.Width <= bounds.Width * WIDTH_MARGIN &&
+                        textSize.Height <= bounds.Height) {
+                        minSize = currentSize;
+                        optimalSize = currentSize;
+                    } else {
+                        maxSize = currentSize;
+                    }
                 }
             }
 
-            return fontSize;
+            return optimalSize;
         }
 
         /// <summary>
-        /// Draws text with a semi-transparent background for better readability
+        /// Draws text with optimal size and positioning within the bounding box
         /// </summary>
-        private static void DrawTextWithBackground(Graphics g, string text, Rectangle boundingBox) {
+        private static void DrawTextWithOptimalFit(Graphics g, string text, Rectangle boundingBox) {
             if (string.IsNullOrWhiteSpace(text)) return;
 
-            // Calculate appropriate font size
-            float fontSize = CalculateFontSize(g, text, boundingBox);
+            // Calculate optimal font size
+            float fontSize = CalculateOptimalFontSize(g, text, boundingBox);
 
-            using (Font font = new Font("Arial", fontSize, FontStyle.Bold, GraphicsUnit.Pixel)) {
-                // Measure the text with the calculated font size
+            using (var font = new Font("Arial", fontSize, FontStyle.Bold, GraphicsUnit.Pixel)) {
+                // Measure final text size for vertical centering
                 SizeF textSize = g.MeasureString(text, font);
+                float yOffset = (boundingBox.Height - textSize.Height) / 2;
 
-                // Create background rectangle that fits the text
+                // Create background rectangle
                 Rectangle backgroundRect = new Rectangle(
                     boundingBox.X,
                     boundingBox.Y,
-                    Math.Max(boundingBox.Width, (int)Math.Ceiling(textSize.Width)),
-                    Math.Max(boundingBox.Height, (int)Math.Ceiling(textSize.Height))
+                    boundingBox.Width,
+                    boundingBox.Height
                 );
 
-                // Draw semi-transparent black background
-                using (SolidBrush backgroundBrush = new SolidBrush(Color.FromArgb(180, 0, 0, 0))) {
-                    g.FillRectangle(backgroundBrush, backgroundRect);
+                // Draw semi-transparent background
+                using (var bgBrush = new SolidBrush(Color.FromArgb(180, 0, 0, 0))) {
+                    g.FillRectangle(bgBrush, backgroundRect);
                 }
 
-                // Draw text in white
-                using (SolidBrush textBrush = new SolidBrush(Color.White)) {
-                    // Calculate position to center text vertically in background
-                    float textX = boundingBox.X;
-                    float textY = boundingBox.Y + (backgroundRect.Height - textSize.Height) / 2;
+                // Draw text
+                using (var textBrush = new SolidBrush(Color.White)) {
+                    var textRect = new RectangleF(
+                        boundingBox.X,
+                        boundingBox.Y + yOffset,
+                        boundingBox.Width,
+                        textSize.Height
+                    );
 
-                    g.DrawString(text, font, textBrush, new PointF(textX, textY));
+                    // Create string format for left alignment
+                    using (var sf = new StringFormat()) {
+                        sf.Alignment = StringAlignment.Near; // Left alignment
+                        sf.LineAlignment = StringAlignment.Center;
+                        sf.FormatFlags = StringFormatFlags.NoWrap |
+                                       StringFormatFlags.NoClip;
+                        sf.Trimming = StringTrimming.None;
+
+                        g.DrawString(text, font, textBrush, textRect, sf);
+                    }
                 }
 
-                // Draw subtle border (optional)
-                using (Pen borderPen = new Pen(Color.FromArgb(100, 255, 255, 255), 1)) {
-                    g.DrawRectangle(borderPen, backgroundRect);
-                }
+                // Optionally, draw a subtle border for debugging
+                //using (var borderPen = new Pen(Color.FromArgb(50, 255, 255, 255))) {
+                //    g.DrawRectangle(borderPen, backgroundRect);
+                //}
             }
         }
     }
