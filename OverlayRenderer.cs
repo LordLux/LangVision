@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.IO;
 
 namespace LangVision {
     internal static class OverlayRenderer {
@@ -28,6 +29,11 @@ namespace LangVision {
 
                 foreach (var text in translatedTexts) {
                     if (!IsValidBoundingBox(text.BoundingBox)) continue;
+                    var newBoundingBox = text.BoundingBox;
+                    newBoundingBox.Height += 2;
+                    newBoundingBox.Y -= 1;
+                    newBoundingBox.Width += 2;
+                    newBoundingBox.X -= 1;
                     DrawTextWithOptimalFit(g, text.TranslatedTextValue ?? "", text.BoundingBox);
                 }
             }
@@ -67,6 +73,14 @@ namespace LangVision {
 
             return optimalSize;
         }
+        private static Font LoadCustomFont(float fontSize, FontStyle fontStyle) {
+            string fontPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Fonts", "ProductSans.ttf");
+
+            PrivateFontCollection pfc = new PrivateFontCollection();
+            pfc.AddFontFile(fontPath);
+
+            return new Font(pfc.Families[0], fontSize, fontStyle, GraphicsUnit.Pixel);
+        }
 
         /// <summary>
         /// Draws text with optimal size and positioning within the bounding box
@@ -77,50 +91,48 @@ namespace LangVision {
             // Calculate optimal font size
             float fontSize = CalculateOptimalFontSize(g, text, boundingBox);
 
-            using (var font = new Font("Arial", fontSize, FontStyle.Bold, GraphicsUnit.Pixel)) {
-                // Measure final text size for vertical centering
-                SizeF textSize = g.MeasureString(text, font);
-                float yOffset = (boundingBox.Height - textSize.Height) / 2;
+            Font font = LoadCustomFont(fontSize + 4, FontStyle.Regular);
+            SizeF textSize = g.MeasureString(text, font);
+            float yOffset = ((boundingBox.Height - textSize.Height) / 2) + 4.5f;
 
-                // Create background rectangle
-                Rectangle backgroundRect = new Rectangle(
+            // Create background rectangle
+            Rectangle backgroundRect = new Rectangle(
+                boundingBox.X + 1,
+                boundingBox.Y + 5,
+                boundingBox.Width,
+                boundingBox.Height
+            );
+
+            // Draw semi-transparent background
+            //using (SolidBrush bgBrush = new SolidBrush(Color.FromArgb(180, 0, 0, 0))) {
+            //    g.FillRectangle(bgBrush, backgroundRect);
+            //}
+
+            // Draw text
+            using (var textBrush = new SolidBrush(Color.White)) {
+                var textRect = new RectangleF(
                     boundingBox.X,
-                    boundingBox.Y,
+                    boundingBox.Y + yOffset,
                     boundingBox.Width,
-                    boundingBox.Height
+                    textSize.Height
                 );
 
-                // Draw semi-transparent background
-                using (var bgBrush = new SolidBrush(Color.FromArgb(180, 0, 0, 0))) {
-                    g.FillRectangle(bgBrush, backgroundRect);
+                // Create string format for left alignment
+                using (var sf = new StringFormat()) {
+                    sf.Alignment = StringAlignment.Near; // Left alignment
+                    sf.LineAlignment = StringAlignment.Center;
+                    sf.FormatFlags = StringFormatFlags.NoWrap |
+                                   StringFormatFlags.NoClip;
+                    sf.Trimming = StringTrimming.None;
+
+                    g.DrawString(text, font, textBrush, textRect, sf);
                 }
-
-                // Draw text
-                using (var textBrush = new SolidBrush(Color.White)) {
-                    var textRect = new RectangleF(
-                        boundingBox.X,
-                        boundingBox.Y + yOffset,
-                        boundingBox.Width,
-                        textSize.Height
-                    );
-
-                    // Create string format for left alignment
-                    using (var sf = new StringFormat()) {
-                        sf.Alignment = StringAlignment.Near; // Left alignment
-                        sf.LineAlignment = StringAlignment.Center;
-                        sf.FormatFlags = StringFormatFlags.NoWrap |
-                                       StringFormatFlags.NoClip;
-                        sf.Trimming = StringTrimming.None;
-
-                        g.DrawString(text, font, textBrush, textRect, sf);
-                    }
-                }
-
-                // Optionally, draw a subtle border for debugging
-                //using (var borderPen = new Pen(Color.FromArgb(50, 255, 255, 255))) {
-                //    g.DrawRectangle(borderPen, backgroundRect);
-                //}
             }
+
+            // Optionally, draw a subtle border for debugging
+            //using (var borderPen = new Pen(Color.FromArgb(50, 255, 255, 255))) {
+            //    g.DrawRectangle(borderPen, backgroundRect);
+            //}
         }
     }
 }
