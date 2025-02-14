@@ -15,7 +15,7 @@ namespace LangVision {
         /// <summary>
         /// Processes OCR and translation for a given screen region and returns the translated image.
         /// </summary>
-        public static async Task<Bitmap?> ProcessRegionAndReturnImage(Rectangle region, string sourceLang, string targetLang) {
+        public static async Task<Bitmap?> ProcessRegionAndReturnImage(Bitmap region, string sourceLang, string targetLang) {
             if (region.Width <= 0 || region.Height <= 0) return null;
 
             // Perform OCR
@@ -39,9 +39,7 @@ namespace LangVision {
                 });
             }
 
-            // Capture the region and overlay translations
-            Bitmap capturedImage = Capture.CaptureScreenRegion(region);
-            return OverlayRenderer.DrawTranslatedText(capturedImage, translatedTexts);
+            return OverlayRenderer.DrawTranslatedText(region, translatedTexts);
         }
     }
 }

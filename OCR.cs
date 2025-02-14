@@ -18,10 +18,9 @@ namespace LangVision {
         /// <summary>
         /// Runs OCR on a specific screen region and extracts text lines with their bounding boxes.
         /// </summary>
-        public static async Task<List<OCRResult>> RecognizeTextFromRegion(Rectangle region) {
+        public static async Task<List<OCRResult>> RecognizeTextFromRegion(Bitmap capturedImage) {
             List<OCRResult> results = new List<OCRResult>();
-
-            Bitmap capturedImage = Capture.CaptureScreenRegion(region);
+            
             ImageAnnotatorClient client = await ImageAnnotatorClient.CreateAsync();
 
             using (var stream = new System.IO.MemoryStream()) {

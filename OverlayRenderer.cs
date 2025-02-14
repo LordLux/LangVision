@@ -19,6 +19,8 @@ namespace LangVision {
             Bitmap overlayImage = new Bitmap(baseImage);
 
             using (Graphics g = Graphics.FromImage(overlayImage)) {
+                g.Clear(Color.Transparent);
+
                 // Enable high quality text rendering
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;

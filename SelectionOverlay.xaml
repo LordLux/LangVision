@@ -19,7 +19,8 @@
             hover           = #323232
             selected        = #454545
         -->
-        <!-- Constants -->
+        
+        <!--            CONSTANTS           -->
         <SolidColorBrush x:Key="Background" Color="#202020" />
         <SolidColorBrush x:Key="DropdownBG" Color="#2D2D2D" />
         <SolidColorBrush x:Key="DropdownBG2" Color="#333333" />
@@ -38,6 +39,48 @@
         <Thickness x:Key="BorderThickness">0</Thickness>
         <FontFamily x:Key="Font">Segoe UI</FontFamily>
 
+        
+        <!--            ANIMATIONS          -->
+        <!-- Smooth Easing Function -->
+        <QuadraticEase x:Key="SmoothEasing" EasingMode="EaseInOut"/>
+
+        <!-- Fade In Animation (Targets the Rectangle Opacity) -->
+        <Storyboard x:Key="FadeInAnimation">
+            <DoubleAnimation Storyboard.TargetName="OverlayBackground"
+                     Storyboard.TargetProperty="Opacity"
+                     From="0" To="0.5"
+                     Duration="0:0:0.3"
+                     EasingFunction="{StaticResource SmoothEasing}"/>
+        </Storyboard>
+
+        <!-- Fade Out Animation (Targets the Rectangle Opacity) -->
+        <Storyboard x:Key="FadeOutAnimation">
+            <DoubleAnimation Storyboard.TargetName="OverlayBackground"
+                     Storyboard.TargetProperty="Opacity"
+                     From="0.5" To="0"
+                     Duration="0:0:0.3"
+                     EasingFunction="{StaticResource SmoothEasing}"
+                     Completed="FadeOutAnimation_Completed"/>
+        </Storyboard>
+
+        <!-- Hover On Animation -->
+        <Storyboard x:Key="HoverOn">
+            <ColorAnimation Storyboard.TargetProperty="Foreground.Color"
+                    To="#FF4444"
+                    Duration="0:0:0.2"/>
+        </Storyboard>
+
+        <!-- Hover Off Animation -->
+        <Storyboard x:Key="HoverOff">
+            <ColorAnimation Storyboard.TargetProperty="Foreground.Color"
+                    To="White"
+                    Duration="0:0:0.2"/>
+        </Storyboard>
+
+
+
+
+        <!--            STYLES             -->
         <!-- Dropdown Style -->
         <Style x:Key="ModernComboBoxStyle" TargetType="ComboBox">
             <Setter Property="Background" Value="{StaticResource Background}"/>
@@ -176,10 +219,9 @@
         </Style>
 
         <!-- Button Style -->
-        <Style x:Key="ModernCloseButtonStyle" TargetType="Button">
+        <Style x:Key="ModernButtonBaseStyle" TargetType="Button">
             <Setter Property="Background" Value="{StaticResource Background}"/>
             <Setter Property="Foreground" Value="{StaticResource Foreground}"/>
-            <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Height" Value="28"/>
             <Setter Property="Width" Value="28"/>
             <Setter Property="Cursor" Value="Arrow"/>
@@ -190,15 +232,15 @@
                                 Background="{TemplateBinding Background}"
                                 BorderThickness="{StaticResource BorderThickness}"
                                 CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" 
-                                            VerticalAlignment="Center"/>
+                            <ContentPresenter x:Name="Content" 
+                                            HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center">
+                                <ContentPresenter.RenderTransform>
+                                    <ScaleTransform x:Name="ContentScale" ScaleX="1" ScaleY="1"/>
+                                </ContentPresenter.RenderTransform>
+                            </ContentPresenter>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <!-- Button Hover -->
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Border" Property="Background" Value="{StaticResource Hover}"/>
-                            </Trigger>
-                            <!-- Button Selected -->
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Border" Property="Background" Value="{StaticResource Selected}"/>
                             </Trigger>
@@ -208,30 +250,110 @@
             </Setter>
         </Style>
 
-        
-        <!-- Smooth Easing Function -->
-        <QuadraticEase x:Key="SmoothEasing" EasingMode="EaseInOut"/>
+        <!-- Close Button Style -->
+        <Style x:Key="ModernCloseButtonStyle" BasedOn="{StaticResource ModernButtonBaseStyle}" TargetType="Button">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Hover}"/>
+                    <Trigger.EnterActions>
+                        <BeginStoryboard Storyboard="{StaticResource HoverOn}"/>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard Storyboard="{StaticResource HoverOff}"/>
+                    </Trigger.ExitActions>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
 
-        <!-- Fade In Animation (Targets the Rectangle Opacity) -->
-        <Storyboard x:Key="FadeInAnimation">
-            <DoubleAnimation Storyboard.TargetName="OverlayBackground"
-                            Storyboard.TargetProperty="Opacity"
-                            From="0" To="0.5"
-                            Duration="0:0:0.3"
-                            EasingFunction="{StaticResource SmoothEasing}"/>
-        </Storyboard>
+        <!-- Fullscreen Button Style -->
+        <Style x:Key="ModernFullscreenButtonStyle" BasedOn="{StaticResource ModernButtonBaseStyle}" TargetType="Button">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="4">
+                            <Viewbox Width="35" Margin="-2.75,1.5,0,0">
+                                <Grid>
+                                <!-- Left Path -->
+                                    <Path x:Name="LeftPath"
+                                          Width="4" 
+                                          Height="11"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          Data="M 0,3  L  0,0  L  3,0
+                                                M 3,10 L  0,10  L  0,7"
+                                          Stroke="{StaticResource Foreground}"
+                                          StrokeThickness="1.5"
+                                          HorizontalAlignment="Left"
+                                          Margin="7.5,0,2,0"/>
 
-        <!-- Fade Out Animation (Targets the Rectangle Opacity) -->
-        <Storyboard x:Key="FadeOutAnimation">
-            <DoubleAnimation Storyboard.TargetName="OverlayBackground"
-                            Storyboard.TargetProperty="Opacity"
-                            From="0.5" To="0"
-                            Duration="0:0:0.3"
-                            EasingFunction="{StaticResource SmoothEasing}"
-                            Completed="FadeOutAnimation_Completed"/>
-        </Storyboard>
+                                    <!-- Right Path -->
+                                    <Path x:Name="RightPath"
+                                          Width="13" 
+                                          Height="11"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          Data="M 9,0  L 12,0  L 12,3
+                                                M 9,10 L 12,10 L 12,7"
+                                          Stroke="{StaticResource Foreground}"
+                                          StrokeThickness="1.5"
+                                          HorizontalAlignment="Right"
+                                          Margin="7,0,7.5,0"/>
+                                </Grid>
+                            </Viewbox>
+                        </Border>
+
+                        <ControlTemplate.Triggers>
+                            <!-- Hover Effect: Change Background Color -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{StaticResource Hover}"/>
+
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <!-- Animate LeftPath Margin -->
+                                            <ThicknessAnimation Storyboard.TargetName="LeftPath"
+                                                        Storyboard.TargetProperty="Margin"
+                                                        To="6,0,2,0"
+                                                        Duration="0:0:0.2"/>
+
+                                            <!-- Animate RightPath Margin -->
+                                            <ThicknessAnimation Storyboard.TargetName="RightPath"
+                                                        Storyboard.TargetProperty="Margin"
+                                                        To="7,0,6,0"
+                                                        Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <!-- Reset LeftPath Margin -->
+                                            <ThicknessAnimation Storyboard.TargetName="LeftPath"
+                                                        Storyboard.TargetProperty="Margin"
+                                                        To="7.5,0,2,0"
+                                                        Duration="0:0:0.2"/>
+
+                                            <!-- Reset RightPath Margin -->
+                                            <ThicknessAnimation Storyboard.TargetName="RightPath"
+                                                        Storyboard.TargetProperty="Margin"
+                                                        To="7,0,7.5,0"
+                                                        Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
-
+    
+    
+    <!--             LAYOUT             -->
     <Grid Name="OverlayGrid">
         <!-- Frozen screen image in bg -->
         <Image Name="FrozenScreenImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
@@ -280,7 +402,7 @@
                             Width="120"
                             Style="{StaticResource ModernComboBoxStyle}"/>
                 </StackPanel> -->
-
+                <!-- Dropdown -->
                 <StackPanel Orientation="Horizontal">
                     <!-- <TextBlock Text="To:"
                             Foreground="White"
@@ -302,30 +424,25 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                 </StackPanel>
-                <Button Style="{StaticResource ModernCloseButtonStyle}"
+                <!-- Fullscreen -->
+                <Button Style="{StaticResource ModernFullscreenButtonStyle}"
                         Margin="6,0,0,0"
-                        Click="CloseButton_Click">
-                    <Viewbox Width="15" Height="13" >
-                        <Path Width="13" 
-                          Height="11" 
-                          Margin="1,1,0,0"
-                          Data="
-                                M 0,3  L  0,0  L  3,0
-                                M 9,0  L 12,0  L 12,3
-                                M 0,7  L  0,10 L  3,10
-                                M 9,10 L 12,10 L 12,7"
-                          Stroke="{StaticResource Foreground}"
-                          StrokeThickness="1.5">
-                        </Path>
-                    </Viewbox>
+                        Click="FullscreenButton_Click">
                 </Button>
+                <!-- Close -->
                 <Button Style="{StaticResource ModernCloseButtonStyle}"
                         Margin="6,0,0,0"
                         Click="CloseButton_Click">
-                    <TextBlock Text="✕"
-                               Margin="0,-1,0,0"
-                               FontSize="16" 
-                               FontFamily="{StaticResource Font}"/>
+                    <Viewbox Height="18" Width="18">
+                        <Path x:Name="ClosePath"
+                              Width="12" 
+                              Height="12"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                              StrokeThickness="1.25"
+                              Data="M 2,2 L 10,10 M 10,2 L 2,10"/>
+                    </Viewbox>
                 </Button>
             </StackPanel>
         </Border>

@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Transactions;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.IO;
 
 namespace LangVision {
     public partial class SelectionOverlay : Window {
@@ -123,8 +124,6 @@ namespace LangVision {
         }
 
         // Finished region selection
-        // In SelectionOverlay.xaml.cs, update the Window_MouseUp method:
-        // In SelectionOverlay.xaml.cs:
         private async void Window_MouseUp(object sender, MouseButtonEventArgs e) {
             if (isSelecting) {
                 isSelecting = false;
@@ -136,54 +135,105 @@ namespace LangVision {
                     return;
                 }
 
-                // Get DPI info
-                var transformToDevice = source.CompositionTarget.TransformToDevice;
-                var transformFromDevice = source.CompositionTarget.TransformFromDevice;
-
-                // Transform to screen coordinates
-                var startPointScreen = transformToDevice.Transform(startPoint);
-                var endPointScreen = transformToDevice.Transform(endPoint);
-
-                // Calculate region dimensions
-                int x = (int)Math.Min(startPointScreen.X, endPointScreen.X);
-                int y = (int)Math.Min(startPointScreen.Y, endPointScreen.Y);
-                int width = (int)Math.Abs(startPointScreen.X - endPointScreen.X);
-                int height = (int)Math.Abs(startPointScreen.Y - endPointScreen.Y);
-
-                // Store the selected region with margin adjustment
-                SelectedRegion = new System.Drawing.Rectangle(
-                    x - Capture.xMargin,
-                    y - Capture.yMargin,
-                    width,
-                    height
-                );
-
                 SelectionRectangle.Visibility = Visibility.Hidden;
+                ApplyGradientOverlay();
 
-                // Get selected target language
-                string targetLang = GetSelectedTargetLanguage();
-
-                // Process with selected language
-                var translatedImage = await Processing.ProcessRegionAndReturnImage(SelectedRegion, "auto", targetLang); // always auto
-
-                if (translatedImage != null) {
-                    TranslatedImage.Source = ConvertBitmapToImageSource(translatedImage);
-                    TranslatedImage.Visibility = Visibility.Visible;
-
-                    // Transform back to WPF coordinates for positioning
-                    var wpfPoint = transformFromDevice.Transform(new System.Windows.Point(x, y));
-
-                    // Position the translation overlay
-                    Canvas.SetLeft(TranslatedImage, wpfPoint.X);
-                    Canvas.SetTop(TranslatedImage, wpfPoint.Y + Capture.yMargin);
-
-                    // Set size with DPI adjustment
-                    TranslatedImage.Width = width / transformToDevice.M11;
-                    TranslatedImage.Height = height / transformToDevice.M22;
-                }
+                var selectedRegion = GetSelectedRegion(source);
+                await ProcessSelection(selectedRegion, source);
             }
         }
 
+        /// <summary> Fullscreen button click event </summary>
+        private async void FullscreenButton_Click(object sender, RoutedEventArgs e) {
+            // Get the active screen bounds
+            Screen activeScreen = Screen.FromPoint(System.Windows.Forms.Cursor.Position);
+            System.Drawing.Rectangle screenBounds = activeScreen.Bounds;
+
+            // Apply margins if necessary
+            System.Drawing.Rectangle captureRegion = new System.Drawing.Rectangle(
+                screenBounds.X,
+                screenBounds.Y,
+                screenBounds.Width,
+                screenBounds.Height
+            );
+
+            // Get DPI scaling of the active screen
+            var source = PresentationSource.FromVisual(this);
+            await ProcessSelection(captureRegion, source);
+        }
+
+        /// <summary> Get the selected screen region, adjusted for DPI </summary>
+        private System.Drawing.Rectangle GetSelectedRegion(PresentationSource source) {
+            // Get DPI info
+            var transformToDevice = source.CompositionTarget.TransformToDevice;
+
+            // Transform to screen coordinates
+            var startPointScreen = transformToDevice.Transform(startPoint);
+            var endPointScreen = transformToDevice.Transform(endPoint);
+
+            // Calculate region dimensions
+            int x = (int)Math.Min(startPointScreen.X, endPointScreen.X);
+            int y = (int)Math.Min(startPointScreen.Y, endPointScreen.Y);
+            int width = (int)Math.Abs(startPointScreen.X - endPointScreen.X);
+            int height = (int)Math.Abs(startPointScreen.Y - endPointScreen.Y);
+
+            // Store the selected region with margin adjustment
+            return new System.Drawing.Rectangle(
+                x - Capture.xMargin,
+                y - Capture.yMargin,
+                width,
+                height
+            );
+        }
+
+        /// <summary> Process a selected screen region and display the translated text </summary>
+        private async Task ProcessSelection(System.Drawing.Rectangle region, PresentationSource source) {
+            if (region.Width <= 0 || region.Height <= 0) return;
+
+            // Get DPI info
+            var transformToDevice = source.CompositionTarget.TransformToDevice;
+            var transformFromDevice = source.CompositionTarget.TransformFromDevice;
+
+            // Crop the selected region from the FrozenScreenImage instead of capturing again
+            Bitmap capturedRegion = CropFrozenScreen(region);
+            if (capturedRegion == null) return;
+
+            // Get selected target language
+            string targetLang = GetSelectedTargetLanguage();
+
+            // Process with selected language
+            var translatedImage = await Processing.ProcessRegionAndReturnImage(capturedRegion, "auto", targetLang);
+
+            if (translatedImage != null) {
+                TranslatedImage.Source = ConvertBitmapToImageSource(translatedImage);
+                TranslatedImage.Visibility = Visibility.Visible;
+
+                // Transform screen coordinates back to WPF coordinates
+                var wpfPoint = transformFromDevice.Transform(new System.Windows.Point(region.X, region.Y));
+
+                // Correct the position and scaling using DPI transformation
+                Canvas.SetLeft(TranslatedImage, wpfPoint.X);
+                Canvas.SetTop(TranslatedImage, wpfPoint.Y);
+
+                // Adjust width and height for DPI scaling
+                TranslatedImage.Width = region.Width / transformToDevice.M11;
+                TranslatedImage.Height = region.Height / transformToDevice.M22;
+            }
+        }
+
+
+
+        //// HELPER FUNCTIONS
+        // <summary> Crops the selected region from the frozen screen image instead of recapturing </summary>
+        private Bitmap CropFrozenScreen(System.Drawing.Rectangle region) {
+            // Convert FrozenScreenImage (BitmapImage) to Bitmap
+            Bitmap fullScreenshot = ConvertBitmapImageToBitmap((BitmapImage)FrozenScreenImage.Source);
+
+            // Crop the region
+            Bitmap croppedImage = fullScreenshot.Clone(region, fullScreenshot.PixelFormat);
+
+            return croppedImage;
+        }
 
         /// <summary> Converts a Bitmap to a BitmapImage (WPF format) </summary>
         private BitmapImage ConvertBitmapToImageSource(Bitmap bitmap) {
@@ -199,7 +249,19 @@ namespace LangVision {
             }
         }
 
+        /// <summary> Converts a BitmapImage (used in WPF) to a Bitmap (System.Drawing) </summary>
+        private Bitmap ConvertBitmapImageToBitmap(BitmapImage bitmapImage) {
+            using (MemoryStream outStream = new MemoryStream()) {
+                BitmapEncoder encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(bitmapImage));
+                encoder.Save(outStream);
+                return new Bitmap(outStream);
+            }
+        }
 
+
+        //// UI Events
+        /// <summary> Language dropdowns </summary>
         public class LanguageItem {
             public string Code { get; set; }
             public string DisplayName { get; set; }
@@ -212,6 +274,7 @@ namespace LangVision {
             public override string ToString() => DisplayName;
         }
 
+        /// <summary> Initializes the language dropdowns with supported languages. </summary>
         private void InitializeLanguageDropdowns() {
             var languages = new Dictionary<string, string> {
             {"en", "English"},
@@ -245,15 +308,19 @@ namespace LangVision {
             );
         }
 
+        /// <summary> Get the selected target language from the dropdown </summary>
         private string GetSelectedTargetLanguage() {
             return ((LanguageItem)OutputLang.SelectedItem)?.Code ?? SettingsManager.GetSavedTargetLanguage();
         }
+
+        /// <summary> Save the selected target language to the registry </summary>
         private void OutputLang_SelectionChanged(object sender, SelectionChangedEventArgs e) {
             if (!suppressSelectionChanged && OutputLang.SelectedItem is LanguageItem selectedItem) {
                 SettingsManager.SaveTargetLanguage(selectedItem.Code);
             }
         }
 
+        /// <summary> Close button </summary>
         private void CloseButton_Click(object sender, RoutedEventArgs e) {
             CheckIfClosing();
         }
