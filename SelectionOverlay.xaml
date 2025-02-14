@@ -19,6 +19,7 @@
             hover           = #323232
             selected        = #454545
         -->
+        <!-- Constants -->
         <SolidColorBrush x:Key="Background" Color="#202020" />
         <SolidColorBrush x:Key="DropdownBG" Color="#2D2D2D" />
         <SolidColorBrush x:Key="DropdownBG2" Color="#333333" />
@@ -207,6 +208,7 @@
             </Setter>
         </Style>
 
+        
         <!-- Smooth Easing Function -->
         <QuadraticEase x:Key="SmoothEasing" EasingMode="EaseInOut"/>
 
@@ -300,6 +302,23 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                 </StackPanel>
+                <Button Style="{StaticResource ModernCloseButtonStyle}"
+                        Margin="6,0,0,0"
+                        Click="CloseButton_Click">
+                    <Viewbox Width="15" Height="13" >
+                        <Path Width="13" 
+                          Height="11" 
+                          Margin="1,1,0,0"
+                          Data="
+                                M 0,3  L  0,0  L  3,0
+                                M 9,0  L 12,0  L 12,3
+                                M 0,7  L  0,10 L  3,10
+                                M 9,10 L 12,10 L 12,7"
+                          Stroke="{StaticResource Foreground}"
+                          StrokeThickness="1.5">
+                        </Path>
+                    </Viewbox>
+                </Button>
                 <Button Style="{StaticResource ModernCloseButtonStyle}"
                         Margin="6,0,0,0"
                         Click="CloseButton_Click">
