@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace LangVision {
     internal static class Processing {
@@ -27,6 +28,9 @@ namespace LangVision {
             foreach (var textItem in detectedTexts) {
                 string translatedText = await Translation.TranslateText(textItem.Text ?? "", sourceLang, targetLang);
                 if (string.IsNullOrWhiteSpace(translatedText)) continue;
+
+                // Decode HTML entities before adding to the list
+                translatedText = System.Web.HttpUtility.HtmlDecode(translatedText);
 
                 translatedTexts.Add(new TranslatedText {
                     OriginalText = textItem.Text ?? "",

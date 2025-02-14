@@ -1,6 +1,7 @@
 ﻿<Window x:Class="LangVision.SelectionOverlay"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="clr-namespace:System;assembly=netstandard"
         WindowStyle="None" 
         AllowsTransparency="True"
         Background="Transparent"
@@ -11,26 +12,221 @@
         MouseUp="Window_MouseUp">
 
     <Window.Resources>
+        <!--
+            bg              = #202020
+            inner dropdown  = #2D2D2D
+            inner dropdown2 = #333333
+            hover           = #323232
+            selected        = #454545
+        -->
+        <SolidColorBrush x:Key="Background" Color="#202020" />
+        <SolidColorBrush x:Key="DropdownBG" Color="#2D2D2D" />
+        <SolidColorBrush x:Key="DropdownBG2" Color="#333333" />
+        
+        <SolidColorBrush x:Key="Foreground" Color="White" />
+        <SolidColorBrush x:Key="ArrowForeground" Color="#CCCCCC" />
+
+        <SolidColorBrush x:Key="Hover" Color="#323232" />
+        <SolidColorBrush x:Key="DropdownHover" Color="#3D3D3D" />
+
+        <SolidColorBrush x:Key="Selected" Color="#454545" />
+        <SolidColorBrush x:Key="Transparent" Color="Transparent" />
+        
+        <sys:Double x:Key="FontSize">14</sys:Double>
+        <sys:Double x:Key="FontSizeSmall">12</sys:Double>
+        <Thickness x:Key="BorderThickness">0</Thickness>
+        <FontFamily x:Key="Font">Segoe UI</FontFamily>
+
+        <!-- Dropdown Style -->
+        <Style x:Key="ModernComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Background" Value="{StaticResource Background}"/>
+            <Setter Property="Foreground" Value="{StaticResource Foreground}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Transparent}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Height" Value="37"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton"
+                                            IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                            ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="Border"
+                                                Background="{StaticResource DropdownBG2}"
+                                                BorderBrush="{StaticResource Transparent}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="4"> <!-- Dropdown Inner Border Radius -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                            <!-- Dropdown Text -->
+                                            <TextBlock Text="{Binding Path=Text, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}, Mode=OneWay}"
+                                                        Foreground="{StaticResource Foreground}"
+                                                        FontSize="{StaticResource FontSize}"
+                                                        FontFamily="{StaticResource Font}"
+                                                        VerticalAlignment="Center"
+                                                        Margin="8,0"/>
+                                            <ContentPresenter Content="{TemplateBinding Content}"
+                                                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                                Margin="{TemplateBinding Padding}"
+                                                                VerticalAlignment="Center"/>
+                                            <Path x:Name="ArrowIcon"
+                                                        Grid.Column="1"
+                                                        Data="M0,0 L0,2 L4,6 L8,2 L8,0 L4,4 z"
+                                                        Fill="{StaticResource ArrowForeground}"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        Margin="0,0,8,0"
+                                                        RenderTransformOrigin="0.5,0.5">
+                                                    <Path.RenderTransform>
+                                                        <RotateTransform x:Name="ArrowRotateTransform" Angle="0"/>
+                                                    </Path.RenderTransform>
+                                                </Path>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <!-- Dropdown Hover -->
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Border" Property="Background" Value="{StaticResource DropdownHover}"/>
+                                                <Setter TargetName="ArrowIcon" Property="Fill" Value="{StaticResource Foreground}"/>
+                                            </Trigger>
+                                            <!-- Dropdown Selected -->
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Border" Property="Background" Value="{StaticResource Selected}"/>
+                                                <Setter TargetName="ArrowIcon" Property="Fill" Value="{StaticResource Foreground}"/>
+                                                <!-- Arrow Animations -->
+                                                <Trigger.EnterActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="ArrowRotateTransform"
+                                                                                Storyboard.TargetProperty="Angle"
+                                                                                To="180"
+                                                                                Duration="0:0:0.2"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </Trigger.EnterActions>
+                                                <Trigger.ExitActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="ArrowRotateTransform"
+                                                                                Storyboard.TargetProperty="Angle"
+                                                                                To="0"
+                                                                                Duration="0:0:0.2"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </Trigger.ExitActions>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <!-- Dropdown List -->
+                            <Popup x:Name="PART_Popup" 
+                                    AllowsTransparency="True"
+                                    IsOpen="{Binding IsChecked, ElementName=ToggleButton}"
+                                    Placement="Bottom"
+                                    PopupAnimation="Slide"
+                                    StaysOpen="False">
+                                <Border Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="8"
+                                        Margin="0,2,0,0">
+                                    <ScrollViewer SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dropdown Item Style -->
+        <Style x:Key="ModernComboBoxItemStyle" TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="{StaticResource Transparent}"/>
+            <Setter Property="Padding" Value="8,8"/>
+            <Setter Property="Width" Value="140"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="{StaticResource Hover}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="{StaticResource Selected}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Button Style -->
+        <Style x:Key="ModernCloseButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource Background}"/>
+            <Setter Property="Foreground" Value="{StaticResource Foreground}"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="{StaticResource BorderThickness}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <!-- Button Hover -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="{StaticResource Hover}"/>
+                            </Trigger>
+                            <!-- Button Selected -->
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="{StaticResource Selected}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Smooth Easing Function -->
         <QuadraticEase x:Key="SmoothEasing" EasingMode="EaseInOut"/>
 
         <!-- Fade In Animation (Targets the Rectangle Opacity) -->
         <Storyboard x:Key="FadeInAnimation">
             <DoubleAnimation Storyboard.TargetName="OverlayBackground"
-                         Storyboard.TargetProperty="Opacity"
-                         From="0" To="0.5"
-                         Duration="0:0:0.3"
-                         EasingFunction="{StaticResource SmoothEasing}"/>
+                            Storyboard.TargetProperty="Opacity"
+                            From="0" To="0.5"
+                            Duration="0:0:0.3"
+                            EasingFunction="{StaticResource SmoothEasing}"/>
         </Storyboard>
 
         <!-- Fade Out Animation (Targets the Rectangle Opacity) -->
         <Storyboard x:Key="FadeOutAnimation">
             <DoubleAnimation Storyboard.TargetName="OverlayBackground"
-                         Storyboard.TargetProperty="Opacity"
-                         From="0.5" To="0"
-                         Duration="0:0:0.3"
-                         EasingFunction="{StaticResource SmoothEasing}"
-                         Completed="FadeOutAnimation_Completed"/>
+                            Storyboard.TargetProperty="Opacity"
+                            From="0.5" To="0"
+                            Duration="0:0:0.3"
+                            EasingFunction="{StaticResource SmoothEasing}"
+                            Completed="FadeOutAnimation_Completed"/>
         </Storyboard>
     </Window.Resources>
 
@@ -46,28 +242,73 @@
                 Panel.ZIndex="1">
             <!-- Translated text overlay (only shows the text, not the captured region) -->
             <Image Name="TranslatedImage" 
-                       Visibility="Hidden" 
-                       Stretch="None" 
-                       RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                        Visibility="Hidden" 
+                        Stretch="None" 
+                        RenderOptions.BitmapScalingMode="NearestNeighbor"/>
             <!-- Selection rectangle while dragging -->
             <Rectangle Name="SelectionRectangle" 
-                       Stroke="#b3dfff" 
-                       StrokeThickness="2" 
-                       Fill="#40b3dfff" 
-                       Visibility="Hidden"/>
-
-            
+                        Stroke="#b3dfff" 
+                        StrokeThickness="2" 
+                        Fill="#40b3dfff" 
+                        Visibility="Hidden"/>
         </Canvas>
 
-        <!-- Top UI layer -->
-        <StackPanel Orientation="Horizontal" 
-                    HorizontalAlignment="Center" 
-                    VerticalAlignment="Top" 
-                    Background="#222" 
-                    Panel.ZIndex="2">
-            <ComboBox Name="InputLang" Width="100" Margin="5"/>
-            <ComboBox Name="OutputLang" Width="100" Margin="5"/>
-            <CheckBox Name="UseAiTranslation" Content="AI Translation" Foreground="White" Margin="5"/>
-        </StackPanel>
+        <!-- Top Modern UI -->
+        <Border Background="{StaticResource Background}" 
+                CornerRadius="9"
+                Width="Auto"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="0,19,0,0"
+                Panel.ZIndex="2">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Style>
+            </Border.Style>
+            <StackPanel Orientation="Horizontal" Margin="8">
+                <!-- Commented out source language selection
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="From:" 
+                            Foreground="White" 
+                            VerticalAlignment="Center" 
+                            Margin="0,0,8,0"
+                            FontSize="13"/>
+                    <ComboBox Name="InputLang" 
+                            Width="120"
+                            Style="{StaticResource ModernComboBoxStyle}"/>
+                </StackPanel> -->
+
+                <StackPanel Orientation="Horizontal">
+                    <!-- <TextBlock Text="To:"
+                            Foreground="White"
+                            VerticalAlignment="Center"
+                            Margin="0,0,8,0"
+                            FontSize="13"/> -->
+                    <ComboBox Name="OutputLang" 
+                            Width="140"
+                            Style="{StaticResource ModernComboBoxStyle}"
+                            SelectionChanged="OutputLang_SelectionChanged"
+                            ItemContainerStyle="{StaticResource ModernComboBoxItemStyle}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}" 
+                                            Foreground="{StaticResource Foreground}"
+                                            FontSize="{StaticResource FontSizeSmall}"
+                                            FontFamily="{StaticResource Font}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+                <Button Style="{StaticResource ModernCloseButtonStyle}"
+                        Margin="6,0,0,0"
+                        Click="CloseButton_Click">
+                    <TextBlock Text="✕"
+                               Margin="0,-1,0,0"
+                               FontSize="16" 
+                               FontFamily="{StaticResource Font}"/>
+                </Button>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

@@ -36,6 +36,15 @@ namespace LangVision
             //RegisterHotKey(_windowHandle, HOTKEY_ID_FULLSCREEN, MOD_WIN | MOD_SHIFT, VK_Z);
         }
 
+        /// <summary>
+        /// Processes Windows messages to handle hotkey events.
+        /// </summary>
+        /// <param name="hwnd">The handle to the window receiving the message.</param>
+        /// <param name="msg">The message identifier.</param>
+        /// <param name="wParam">Additional message information. Used to identify the hotkey.</param>
+        /// <param name="lParam">Additional message information. Not used in this method.</param>
+        /// <param name="handled">A value that indicates whether the message was handled.</param>
+        /// <returns>A handle to the window procedure result.</returns>
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) {
             if (msg == WM_HOTKEY) {
                 int hotkeyId = wParam.ToInt32();
@@ -44,7 +53,7 @@ namespace LangVision
                     OnRegionCapture?.Invoke();
                 //else if (hotkeyId == HOTKEY_ID_FULLSCREEN)
                 //    OnFullscreenCapture?.Invoke();
-                
+
                 handled = true;
             }
             return IntPtr.Zero;

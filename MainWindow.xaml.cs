@@ -52,7 +52,7 @@ namespace LangVision {
                     Capture.SaveCapture(capturedImage, filePath);
 
                     // Process OCR & Translation
-                    Bitmap? translatedImage = await Processing.ProcessRegionAndReturnImage(selectedRegion, "auto", "es");
+                    Bitmap? translatedImage = await Processing.ProcessRegionAndReturnImage(selectedRegion, "auto", "en");
 
                     if (translatedImage != null)
                         Capture.SaveCapture(translatedImage, "translated_region.png");

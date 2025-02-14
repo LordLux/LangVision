@@ -16,6 +16,7 @@ namespace LangVision {
         private System.Windows.Point endPoint;
         private bool isSelecting = false;
         private bool isClosing = false;
+        private bool suppressSelectionChanged = false;
 
         public System.Drawing.Rectangle SelectedRegion { get; private set; }
 
@@ -35,9 +36,18 @@ namespace LangVision {
             // Get a screenshot from Capture.cs and use it as background
             FrozenScreenImage.Source = Capture.CaptureActiveScreenAsBitmapImage();
 
+            // Initialize language dropdowns
+            InitializeLanguageDropdowns();
+
             // Detect when the overlay loses focus (Alt+Tab, Win+Tab)
             this.Deactivated += (s, e) => {
                 this.CheckIfClosing();
+            };
+
+            // Force focus and activation
+            this.Loaded += (s, e) => {
+                this.Activate();
+                this.Focus();
             };
         }
 
@@ -45,6 +55,8 @@ namespace LangVision {
         private void CheckIfClosing() {
             if (!isClosing) {
                 isClosing = true;
+                suppressSelectionChanged = true;
+                OutputLang.IsEnabled = false;
                 this.CloseWithFadeOut();
             }
         }
@@ -148,8 +160,11 @@ namespace LangVision {
 
                 SelectionRectangle.Visibility = Visibility.Hidden;
 
-                // Process the region and get only the translated overlay
-                var translatedImage = await Processing.ProcessRegionAndReturnImage(SelectedRegion, "auto", "es");
+                // Get selected target language
+                string targetLang = GetSelectedTargetLanguage();
+
+                // Process with selected language
+                var translatedImage = await Processing.ProcessRegionAndReturnImage(SelectedRegion, "auto", targetLang); // always auto
 
                 if (translatedImage != null) {
                     TranslatedImage.Source = ConvertBitmapToImageSource(translatedImage);
@@ -160,7 +175,7 @@ namespace LangVision {
 
                     // Position the translation overlay
                     Canvas.SetLeft(TranslatedImage, wpfPoint.X);
-                    Canvas.SetTop(TranslatedImage, wpfPoint.Y);
+                    Canvas.SetTop(TranslatedImage, wpfPoint.Y + Capture.yMargin);
 
                     // Set size with DPI adjustment
                     TranslatedImage.Width = width / transformToDevice.M11;
@@ -182,6 +197,65 @@ namespace LangVision {
                 bitmapImage.EndInit();
                 return bitmapImage;
             }
+        }
+
+
+        public class LanguageItem {
+            public string Code { get; set; }
+            public string DisplayName { get; set; }
+
+            public LanguageItem(string code, string displayName) {
+                Code = code;
+                DisplayName = displayName;
+            }
+
+            public override string ToString() => DisplayName;
+        }
+
+        private void InitializeLanguageDropdowns() {
+            var languages = new Dictionary<string, string> {
+            {"en", "English"},
+            {"es", "Spanish"},
+            {"fr", "French"},
+            {"de", "German"},
+            {"it", "Italian"},
+            {"pt", "Portuguese"},
+            {"ru", "Russian"},
+            {"ja", "Japanese"},
+            {"ko", "Korean"},
+            {"zh-CN", "Chinese (Simplified)"}
+            // Add more languages as needed
+        };
+
+            // Source language (auto-detect)
+            //InputLang.Items.Add(new LanguageItem("auto", "Auto-detect"));
+            //InputLang.SelectedIndex = 0;
+            //InputLang.IsEnabled = false; // Lock to auto-detect for now
+
+            // Target language
+            foreach (var lang in languages) {
+                OutputLang.Items.Add(new LanguageItem(lang.Key, lang.Value));
+            }
+
+            // Load saved language from registry
+            string savedLanguage = SettingsManager.GetSavedTargetLanguage();
+            OutputLang.SelectedIndex = Array.FindIndex(
+                OutputLang.Items.Cast<LanguageItem>().ToArray(),
+                item => item.Code == savedLanguage
+            );
+        }
+
+        private string GetSelectedTargetLanguage() {
+            return ((LanguageItem)OutputLang.SelectedItem)?.Code ?? SettingsManager.GetSavedTargetLanguage();
+        }
+        private void OutputLang_SelectionChanged(object sender, SelectionChangedEventArgs e) {
+            if (!suppressSelectionChanged && OutputLang.SelectedItem is LanguageItem selectedItem) {
+                SettingsManager.SaveTargetLanguage(selectedItem.Code);
+            }
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e) {
+            CheckIfClosing();
         }
     }
 }

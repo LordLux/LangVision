@@ -8,6 +8,13 @@
         Title="MainWindow" Height="550" Width="900">
     <Grid>
         <!--<Button Name="btnCapture" Content="Capture Screen" Width="150" Height="40" Click="BtnCapture_Click" Margin="412,197,238,197"/>-->
-        <Button Name="btnRegionCapture" Content="Win Shift X" Width="150" Height="40" Click="BtnRegionCapture_Click" Margin="375,247,375,247"/>
+        <Button Name="btnRegionCapture" 
+                Content="Win Shift X" 
+                Width="150" 
+                Height="40" 
+                Click="BtnRegionCapture_Click" 
+                HorizontalAlignment="Center" 
+                VerticalAlignment="Center"/>
+
     </Grid>
 </Window>
