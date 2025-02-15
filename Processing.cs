@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Web;
+using static LangVision.OCR;
+using static LangVision.Processing;
 
 namespace LangVision {
     internal static class Processing {
@@ -20,30 +22,71 @@ namespace LangVision {
         public static async Task<Bitmap?> ProcessRegionAndReturnImage(Bitmap region, string sourceLang, string targetLang) {
             if (region.Width <= 0 || region.Height <= 0) return null;
 
-            // Perform OCR
-            var detectedTexts = await OCR.RecognizeTextFromRegion(region);
-            if (detectedTexts.Count == 0) return null;
+            // Perform OCR, now returning a list of OCRBlock objects.
+            List<OCRBlock> ocrBlocks = await OCR.RecognizeTextBlocksFromRegion(region);
+            if (ocrBlocks.Count == 0) return null;
 
             List<TranslatedText> translatedTexts = new List<TranslatedText>();
 
-            // Translate each detected text
-            foreach (var textItem in detectedTexts) {
-                string translatedText = await Translation.TranslateText(textItem.Text ?? "", sourceLang, targetLang);
-                if (string.IsNullOrWhiteSpace(translatedText)) continue;
+            foreach (var block in ocrBlocks) {
+                if (block.Lines.Count == 1) {
+                    // For single-line blocks, translate each line individually.
+                    var line = block.Lines[0];
+                    string translatedLine = await Translation.TranslateText(line.LineText, sourceLang, targetLang);
 
-                // Decode HTML entities before adding to the list
-                translatedText = System.Web.HttpUtility.HtmlDecode(translatedText);
+                    translatedLine = HttpUtility.HtmlDecode(translatedLine);
 
-                translatedTexts.Add(new TranslatedText {
-                    OriginalText = textItem.Text ?? "",
-                    TranslatedTextValue = translatedText,
-                    BoundingBox = textItem.BoundingBox,
-                    TextColor = textItem.TextColor,
-                    BackgroundColor = textItem.BackgroundColor
-                });
+                    translatedTexts.Add(new TranslatedText {
+                        OriginalText = line.LineText,
+                        TranslatedTextValue = translatedLine,
+                        BoundingBox = line.BoundingBox,
+                        TextColor = line.Words.FirstOrDefault()?.TextColor ?? Color.White,
+                        BackgroundColor = line.BackgroundColor
+                    });
+                } else {
+                    // For multi-line blocks, translate the entire block and then split.
+                    // Preserve newline boundaries if possible.
+                    string blockText = string.Join("\n", block.Lines.Select(l => l.LineText));
+                    string translatedBlock = await Translation.TranslateText(blockText, sourceLang, targetLang);
+
+                    translatedBlock = HttpUtility.HtmlDecode(translatedBlock);
+
+                    // Split the translated block into N lines (where N = block.Lines.Count).
+                    string[] translatedLines = SplitTranslatedBlock(translatedBlock, block.Lines.Count);
+                    for (int i = 0; i < block.Lines.Count; i++) {
+                        var line = block.Lines[i];
+                        translatedTexts.Add(new TranslatedText {
+                            OriginalText = line.LineText,
+                            TranslatedTextValue = translatedLines[i],
+                            BoundingBox = line.BoundingBox,
+                            TextColor = line.Words.FirstOrDefault()?.TextColor ?? Color.White,
+                            BackgroundColor = line.BackgroundColor
+                        });
+                    }
+                }
             }
 
             return OverlayRenderer.DrawTranslatedText(region, translatedTexts);
+        }
+        private static string[] SplitTranslatedBlock(string translatedBlock, int lineCount) {
+            // If the translated block contains newline characters, split on them.
+            string[] split = translatedBlock.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (split.Length == lineCount) return split;
+            
+            // Otherwise, split based on word count heuristics:
+            var words = translatedBlock.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+            int totalWords = words.Length;
+            int wordsPerLine = totalWords / lineCount;
+            string[] result = new string[lineCount];
+            
+            int index = 0;
+            for (int i = 0; i < lineCount; i++) {
+                int count = (i == lineCount - 1) ? totalWords - index : wordsPerLine;
+                result[i] = string.Join(" ", words.Skip(index).Take(count));
+                index += count;
+            }
+            return result;
         }
     }
 }

@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.IO;
+using System.Windows.Media.TextFormatting;
 
 namespace LangVision {
     internal static class OverlayRenderer {
@@ -55,29 +56,41 @@ namespace LangVision {
         /// Calculates the optimal font size to fit text within the given bounds
         /// </summary>
         private static float CalculateOptimalFontSize(Graphics g, string text, Rectangle bounds) {
-            float fontSize = bounds.Height * INITIAL_SIZE_RATIO;
-            fontSize = Math.Min(MAX_FONT_SIZE, fontSize);
-
-            // Binary search for the optimal font size
+            // Define a minimum and maximum font size.
             float minSize = MIN_FONT_SIZE;
-            float maxSize = fontSize;
-            float optimalSize = fontSize;
+            float maxSize = bounds.Height;
 
+            // The maximum size is the available height.
+            float optimalSize = minSize;
+
+            // Binary search loop: iterate until the difference between max and min is small.
             while (maxSize - minSize > 0.5f) {
-                float currentSize = (minSize + maxSize) / 2;
-                using (var font = LoadCustomFont(currentSize, FontStyle.Regular)) {
-                    SizeF textSize = g.MeasureString(text, font);
-                    if (textSize.Width <= bounds.Width * WIDTH_MARGIN && textSize.Height <= bounds.Height) {
-                        minSize = currentSize;
-                        optimalSize = currentSize;
+                float testSize = (minSize + maxSize) / 2;
+                using (var testFont = LoadCustomFont(testSize, FontStyle.Regular)) {
+                    // Measure the text dimensions with the test font.
+                    SizeF textSize = g.MeasureString(text, testFont);
+                    // Check if the text fits within the bounding box.
+                    if (textSize.Width <= bounds.Width) {
+                        // If no overflow horizontally, check height usage
+                        float neededHeight = bounds.Height;
+                        if (textSize.Height < neededHeight) {
+                            optimalSize = testSize;
+                            // Try increasing the size for maximum utilization
+                            minSize = testSize + 0.1f;
+                        } else {
+                            // If height is exceeded, reduce the size
+                            maxSize = testSize - 0.1f;
+                        }
                     } else {
-                        maxSize = currentSize;
+                        // If overflow horizontally, reduce the size
+                        maxSize = testSize - 0.1f;
                     }
                 }
             }
 
-            return optimalSize;
+            return optimalSize - 2;
         }
+
         private static Font LoadCustomFont(float fontSize, FontStyle fontStyle) {
             string fontPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Fonts", "ProductSans.ttf");
 
@@ -124,8 +137,8 @@ namespace LangVision {
                 );
 
                 using (StringFormat sf = new StringFormat()) {
-                    sf.Alignment = StringAlignment.Center;
-                    sf.LineAlignment = StringAlignment.Center;
+                    sf.Alignment = StringAlignment.Near;
+                    sf.LineAlignment = StringAlignment.Near;
                     sf.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.NoClip;
                     sf.Trimming = StringTrimming.None;
 
