@@ -30,11 +30,17 @@ namespace LangVision {
                 foreach (var text in translatedTexts) {
                     if (!IsValidBoundingBox(text.BoundingBox)) continue;
                     var newBoundingBox = text.BoundingBox;
-                    newBoundingBox.Height += 2;
-                    newBoundingBox.Y -= 1;
+                    newBoundingBox.Height += 4;
+                    newBoundingBox.Y -= 2;
                     newBoundingBox.Width += 2;
                     newBoundingBox.X -= 1;
-                    DrawTextWithOptimalFit(g, text.TranslatedTextValue ?? "", text.BoundingBox);
+                    DrawTextWithOptimalFit(
+                        g,
+                        text.TranslatedTextValue ?? "",
+                        text.BoundingBox,
+                        text.TextColor,
+                        text.BackgroundColor
+                    );
                 }
             }
             return overlayImage;
@@ -59,10 +65,9 @@ namespace LangVision {
 
             while (maxSize - minSize > 0.5f) {
                 float currentSize = (minSize + maxSize) / 2;
-                using (var font = new Font("Arial", currentSize, FontStyle.Bold, GraphicsUnit.Pixel)) {
+                using (var font = LoadCustomFont(currentSize, FontStyle.Regular)) {
                     SizeF textSize = g.MeasureString(text, font);
-                    if (textSize.Width <= bounds.Width * WIDTH_MARGIN &&
-                        textSize.Height <= bounds.Height) {
+                    if (textSize.Width <= bounds.Width * WIDTH_MARGIN && textSize.Height <= bounds.Height) {
                         minSize = currentSize;
                         optimalSize = currentSize;
                     } else {
@@ -85,7 +90,7 @@ namespace LangVision {
         /// <summary>
         /// Draws text with optimal size and positioning within the bounding box
         /// </summary>
-        private static void DrawTextWithOptimalFit(Graphics g, string text, Rectangle boundingBox) {
+        private static void DrawTextWithOptimalFit(Graphics g, string text, Rectangle boundingBox, Color textColor, Color bgColor) {
             if (string.IsNullOrWhiteSpace(text)) return;
 
             // Calculate optimal font size
@@ -93,46 +98,56 @@ namespace LangVision {
 
             Font font = LoadCustomFont(fontSize + 4, FontStyle.Regular);
             SizeF textSize = g.MeasureString(text, font);
-            float yOffset = ((boundingBox.Height - textSize.Height) / 2) + 4.5f;
+            float yOffset = ((boundingBox.Height - textSize.Height) / 2) + (4.5f + 3f);
+
 
             // Create background rectangle
-            Rectangle backgroundRect = new Rectangle(
-                boundingBox.X + 1,
-                boundingBox.Y + 5,
+            RectangleF backgroundRect = new RectangleF(
+                boundingBox.X,
+                boundingBox.Y + 4f,
                 boundingBox.Width,
                 boundingBox.Height
             );
 
             // Draw semi-transparent background
-            //using (SolidBrush bgBrush = new SolidBrush(Color.FromArgb(180, 0, 0, 0))) {
-            //    g.FillRectangle(bgBrush, backgroundRect);
-            //}
+            using (SolidBrush bgBrush = new SolidBrush(bgColor)) {
+                g.FillRectangle(bgBrush, backgroundRect);
+            }
 
             // Draw text
-            using (var textBrush = new SolidBrush(Color.White)) {
+            using (GraphicsPath path = new GraphicsPath()) {
                 var textRect = new RectangleF(
                     boundingBox.X,
                     boundingBox.Y + yOffset,
                     boundingBox.Width,
-                    textSize.Height
+                    fontSize //textSize.Height
                 );
 
-                // Create string format for left alignment
-                using (var sf = new StringFormat()) {
-                    sf.Alignment = StringAlignment.Near; // Left alignment
+                using (StringFormat sf = new StringFormat()) {
+                    sf.Alignment = StringAlignment.Center;
                     sf.LineAlignment = StringAlignment.Center;
-                    sf.FormatFlags = StringFormatFlags.NoWrap |
-                                   StringFormatFlags.NoClip;
+                    sf.FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.NoClip;
                     sf.Trimming = StringTrimming.None;
 
-                    g.DrawString(text, font, textBrush, textRect, sf);
+                    path.AddString(text, font.FontFamily, (int)font.Style, font.Size, textRect, sf);
+                }
+
+                using (Pen outlinePen = new Pen(LightenColor(bgColor, 40), 1.5f) { LineJoin = LineJoin.Round }) {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    g.DrawPath(outlinePen, path);
+                }
+                
+                using (SolidBrush textBrush = new SolidBrush(textColor)) {
+                    g.FillPath(textBrush, path);
                 }
             }
+        }
 
-            // Optionally, draw a subtle border for debugging
-            //using (var borderPen = new Pen(Color.FromArgb(50, 255, 255, 255))) {
-            //    g.DrawRectangle(borderPen, backgroundRect);
-            //}
+        private static Color LightenColor(Color color, int amount) {
+            int r = Math.Min(255, color.R + amount);
+            int g = Math.Min(255, color.G + amount);
+            int b = Math.Min(255, color.B + amount);
+            return Color.FromArgb(color.A, r, g, b);
         }
     }
 }
