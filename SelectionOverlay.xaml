@@ -358,6 +358,8 @@
         <!-- Frozen screen image in bg -->
         <Image Name="FrozenScreenImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
 
+        <Image Name="TranslatedBgImage" Visibility="Hidden" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+
         <!-- Semi-transparent overlay -->
         <Rectangle Name="OverlayBackground" Fill="Black" Opacity="0.5"/>
 

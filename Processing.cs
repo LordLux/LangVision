@@ -10,6 +10,8 @@ namespace LangVision {
             public string? OriginalText { get; set; }
             public string? TranslatedTextValue { get; set; }
             public Rectangle BoundingBox { get; set; }
+            public Color TextColor { get; set; }
+            public Color BackgroundColor { get; set; }
         }
 
         /// <summary>
@@ -35,7 +37,9 @@ namespace LangVision {
                 translatedTexts.Add(new TranslatedText {
                     OriginalText = textItem.Text ?? "",
                     TranslatedTextValue = translatedText,
-                    BoundingBox = textItem.BoundingBox
+                    BoundingBox = textItem.BoundingBox,
+                    TextColor = textItem.TextColor,
+                    BackgroundColor = textItem.BackgroundColor
                 });
             }
 
