@@ -11,8 +11,14 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.IO;
 
+
+// TODO if user changes language after selecting region, reprocess the region with the new language
+// TODO allow the user to select and copy the translated text
+// TODO make program background process and not create a window
+
 namespace LangVision {
     public partial class SelectionOverlay : Window {
+        public static bool isOverlayOpen = false;
         private System.Windows.Point startPoint;
         private System.Windows.Point endPoint;
         private bool isSelecting = false;
@@ -23,6 +29,7 @@ namespace LangVision {
 
         public SelectionOverlay() {
             InitializeComponent();
+            isOverlayOpen = true;
 
             System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
             
@@ -58,6 +65,7 @@ namespace LangVision {
                 isClosing = true;
                 suppressSelectionChanged = true;
                 OutputLang.IsEnabled = false;
+                isOverlayOpen = false;
                 this.CloseWithFadeOut();
             }
         }
