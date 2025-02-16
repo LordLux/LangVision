@@ -49,7 +49,7 @@ namespace LangVision
             if (msg == WM_HOTKEY) {
                 int hotkeyId = wParam.ToInt32();
 
-                if (hotkeyId == HOTKEY_ID_REGION)
+                if (hotkeyId == HOTKEY_ID_REGION && !SelectionOverlay.isOverlayOpen)
                     OnRegionCapture?.Invoke();
                 //else if (hotkeyId == HOTKEY_ID_FULLSCREEN)
                 //    OnFullscreenCapture?.Invoke();
