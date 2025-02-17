@@ -12,7 +12,7 @@ namespace LangVision {
         private const float MIN_FONT_SIZE = 8.0f;
         private const float MAX_FONT_SIZE = 72.0f;
         private const float INITIAL_SIZE_RATIO = 0.9f;
-        private const float WIDTH_MARGIN = 0.98f; // Allow text to use 98% of the box width
+        private const float WIDTH_MARGIN = 0.999f; // Allow text to use 98% of the box width
 
         /// <summary>
         /// Draws translated text on top of the frozen screen capture.
@@ -131,9 +131,9 @@ namespace LangVision {
             using (GraphicsPath path = new GraphicsPath()) {
                 var textRect = new RectangleF(
                     boundingBox.X,
-                    boundingBox.Y + yOffset,
+                    boundingBox.Y + yOffset - 3,
                     boundingBox.Width,
-                    fontSize //textSize.Height
+                    textSize.Height
                 );
 
                 using (StringFormat sf = new StringFormat()) {

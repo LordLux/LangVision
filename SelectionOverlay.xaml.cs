@@ -11,7 +11,6 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.IO;
 
-// TODO if user changes language after selecting region, reprocess the region with the new language
 // TODO allow the user to select and copy the translated text
 // TODO add swipe-in animation to top ui
 // TODO replace bounding box color fill with actual text removal overlay using LaMa
@@ -29,6 +28,13 @@ namespace LangVision {
         private bool isClosing = false;
         private bool suppressSelectionChanged = false;
 
+        private bool _isDragging = false;
+        private System.Windows.Point _mouseOffset;
+        private double _originalLeft, _originalTop;
+
+        private double topMargin = 19;
+        private double bottomMargin = 40;
+
         private Bitmap? cachedRegion;
         private List<OCR.OCRBlock>? cachedOCRBlocks;
 
@@ -39,9 +45,6 @@ namespace LangVision {
             isOverlayOpen = true;
 
             System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
-            
-            //System.Windows.Media.CompositionTarget.Rendering -= OnRendering;
-            //System.Windows.Media.CompositionTarget.Rendering += OnRendering;
 
             Storyboard fadeIn = (Storyboard)FindResource("FadeInAnimation");
             fadeIn.Begin(this);
@@ -50,9 +53,6 @@ namespace LangVision {
 
             // Get a screenshot from Capture.cs and use it as background
             FrozenScreenImage.Source = Capture.CaptureActiveScreenAsBitmapImage();
-
-            // Initialize language dropdowns
-            InitializeLanguageDropdowns();
 
             // Detect when the overlay loses focus (Alt+Tab, Win+Tab)
             this.Deactivated += (s, e) => {
@@ -64,6 +64,18 @@ namespace LangVision {
                 this.Activate();
                 this.Focus();
             };
+        }
+
+        private void InitializeTopUI() {
+            // Set the initial position of the top UI
+            double canvasWidth = MainCanvas.ActualWidth;
+            double borderWidth = TopUIBorder.ActualWidth;
+            double left = (canvasWidth - borderWidth) / 2;
+            Canvas.SetLeft(TopUIBorder, left);
+            Canvas.SetTop(TopUIBorder, topMargin);
+
+            // Initialize the language dropdown
+            InitializeLanguageDropdowns();
         }
 
         /// <summary> Check if the overlay is not already closing and close it with fadeout </summary>
@@ -79,12 +91,43 @@ namespace LangVision {
 
         /// <summary> Closes the overlay with a fade-out animation. </summary>
         private void CloseWithFadeOut() {
-            Storyboard fadeOut = (Storyboard)FindResource("FadeOutAnimation");
+            // Start the overall fade-out animation for the overlay.
+            Storyboard fadeOut = (Storyboard)this.FindResource("FadeOutAnimation");
             fadeOut.Begin(this);
+
+            // Determine where to animate the TopUI:
+            double overlayHeight = MainCanvas.ActualHeight;
+            double currentTop = Canvas.GetTop(TopUIBorder);
+            double targetTopForClose;
+
+            if (currentTop > overlayHeight / 2) {
+                // If TopUI is snapped at the bottom, animate it downwards (off the screen).
+                targetTopForClose = overlayHeight;
+            } else {
+                // If it's at the top, animate it upwards (off the screen).
+                targetTopForClose = -TopUIBorder.ActualHeight;
+            }
+
+            // Animate the TopUI's vertical position with an easing function.
+            DoubleAnimation swipeAnimation = new DoubleAnimation {
+                To = targetTopForClose,
+                Duration = TimeSpan.FromMilliseconds(300),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn },
+                FillBehavior = FillBehavior.Stop
+            };
+
+            // When the animation completes, clear it.
+            swipeAnimation.Completed += (s, e) =>
+            {
+                TopUIBorder.BeginAnimation(Canvas.TopProperty, null);
+                Canvas.SetTop(TopUIBorder, targetTopForClose);
+            };
+
+            TopUIBorder.BeginAnimation(Canvas.TopProperty, swipeAnimation);
         }
 
         /// <summary> Called when fade-out animation completes to fully close the overlay. </summary>
-        private void FadeOutAnimation_Completed(object sender, EventArgs e) => this.Close(); // Now it closes after fade-out
+        private void FadeOutAnimation_Completed(object sender, EventArgs e) => this.Close();
 
         /// <summary> Apply gradient overlay after region selection </summary>
         private void ApplyGradientOverlay() {
@@ -160,7 +203,6 @@ namespace LangVision {
 
         /// <summary> Fullscreen button click event </summary>
         private async void FullscreenButton_Click(object sender, RoutedEventArgs e) {
-            // Get the active screen bounds
             Screen activeScreen = Screen.FromPoint(System.Windows.Forms.Cursor.Position);
             System.Drawing.Rectangle screenBounds = activeScreen.Bounds;
 
@@ -174,19 +216,24 @@ namespace LangVision {
 
             // Get DPI scaling of the active screen
             var source = PresentationSource.FromVisual(this);
+            if (source == null) {
+                CheckIfClosing();
+                return;
+            }
+
+            ApplyGradientOverlay();
+
             await ProcessSelection(captureRegion, source);
         }
 
         /// <summary> Get the selected screen region, adjusted for DPI </summary>
         private System.Drawing.Rectangle GetSelectedRegion(PresentationSource source) {
-            // Get DPI info
             var transformToDevice = source.CompositionTarget.TransformToDevice;
 
             // Transform to screen coordinates
             var startPointScreen = transformToDevice.Transform(startPoint);
             var endPointScreen = transformToDevice.Transform(endPoint);
 
-            // Calculate region dimensions
             int x = (int)Math.Min(startPointScreen.X, endPointScreen.X);
             int y = (int)Math.Min(startPointScreen.Y, endPointScreen.Y);
             int width = (int)Math.Abs(startPointScreen.X - endPointScreen.X);
@@ -213,10 +260,8 @@ namespace LangVision {
             Bitmap capturedRegion = CropFrozenScreen(region);
             if (capturedRegion == null) return;
 
-            // Cache the region
             this.cachedRegion = capturedRegion;
 
-            // Get the current target language
             string targetLang = GetSelectedTargetLanguage();
 
             // Run OCR on the region and cache the result
@@ -350,10 +395,106 @@ namespace LangVision {
             }
         }
 
-
         /// <summary> Close button </summary>
         private void CloseButton_Click(object sender, RoutedEventArgs e) {
             CheckIfClosing();
+        }
+
+
+
+
+        private void MainCanvas_Loaded(object sender, RoutedEventArgs e) {
+            InitializeTopUI();
+        }
+
+        // Drag start: record the offset and capture the mouse.
+        private void DragHandle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) {
+            _isDragging = true;
+            // Get mouse offset within TopUIBorder
+            _mouseOffset = e.GetPosition(TopUIBorder);
+
+            // Capture the mouse on the drag handle
+            DragHandle.CaptureMouse();
+
+            // Record current positions
+            _originalLeft = Canvas.GetLeft(TopUIBorder);
+            if (double.IsNaN(_originalLeft)) {
+                _originalLeft = (MainCanvas.ActualWidth - TopUIBorder.ActualWidth) / 2;
+                Canvas.SetLeft(TopUIBorder, _originalLeft);
+            }
+
+            _originalTop = Canvas.GetTop(TopUIBorder);
+            if (double.IsNaN(_originalTop)) {
+                _originalTop = topMargin;
+                Canvas.SetTop(TopUIBorder, _originalTop);
+            }
+            e.Handled = true;
+        }
+
+        // Dragging: update position in both horizontal and vertical directions.
+        private void DragHandle_MouseMove(object sender, System.Windows.Input.MouseEventArgs e) {
+            if (_isDragging) {
+                // Get current mouse position relative to the Canvas.
+                System.Windows.Point currentPos = e.GetPosition(MainCanvas);
+                double newLeft = currentPos.X - _mouseOffset.X;
+                double newTop = currentPos.Y - _mouseOffset.Y;
+
+                Canvas.SetLeft(TopUIBorder, newLeft);
+                Canvas.SetTop(TopUIBorder, newTop);
+                e.Handled = true;
+            }
+        }
+
+        // Drag end: snap horizontally to center and vertically to top or bottom.
+        private void DragHandle_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) {
+            if (_isDragging) {
+                _isDragging = false;
+                DragHandle.ReleaseMouseCapture();
+                e.Handled = true;
+
+                double currentTop = Canvas.GetTop(TopUIBorder);
+                double currentLeft = Canvas.GetLeft(TopUIBorder);
+                double overlayHeight = MainCanvas.ActualHeight;
+                double overlayWidth = MainCanvas.ActualWidth;
+                double borderHeight = TopUIBorder.ActualHeight;
+
+                // Compute vertical snapping:
+                double distanceToTop = currentTop;
+                double distanceToBottom = overlayHeight - (currentTop + borderHeight);
+                double targetTop = (distanceToTop < distanceToBottom)
+                    ? topMargin
+                    : overlayHeight - borderHeight - bottomMargin;
+
+                // Horizontal snapping: always center.
+                double targetLeft = (overlayWidth - TopUIBorder.ActualWidth) / 2;
+
+                // Create animations with FillBehavior=Stop.
+                DoubleAnimation animLeft = new DoubleAnimation {
+                    To = targetLeft,
+                    Duration = TimeSpan.FromMilliseconds(300),
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                    FillBehavior = FillBehavior.Stop
+                };
+
+                DoubleAnimation animTop = new DoubleAnimation {
+                    To = targetTop,
+                    Duration = TimeSpan.FromMilliseconds(300),
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                    FillBehavior = FillBehavior.Stop
+                };
+
+                // When the vertical animation completes, clear the animations and set final positions.
+                animTop.Completed += (s, ev) =>
+                {
+                    TopUIBorder.BeginAnimation(Canvas.LeftProperty, null);
+                    TopUIBorder.BeginAnimation(Canvas.TopProperty, null);
+                    Canvas.SetLeft(TopUIBorder, targetLeft);
+                    Canvas.SetTop(TopUIBorder, targetTop);
+                };
+
+                TopUIBorder.BeginAnimation(Canvas.LeftProperty, animLeft);
+                TopUIBorder.BeginAnimation(Canvas.TopProperty, animTop);
+            }
         }
     }
 }

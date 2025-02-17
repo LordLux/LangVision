@@ -76,8 +76,19 @@
                     To="White"
                     Duration="0:0:0.2"/>
         </Storyboard>
-
-
+        
+        <!-- Top UI Fade Out Animation -->
+        <Storyboard x:Key="TopUIFadeOutStoryboard">
+            <!-- Fade out animation -->
+            <DoubleAnimation Storyboard.TargetName="TopUIBorder"
+                     Storyboard.TargetProperty="Opacity"
+                     From="1" To="0" Duration="0:0:0.3"
+                     Completed="FadeOutAnimation_Completed"/>
+            <!-- Swipe up animation -->
+            <DoubleAnimation Storyboard.TargetName="TopUIBorder"
+                     Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)"
+                     From="0" To="-75" Duration="0:0:0.1"/>
+        </Storyboard>
 
 
         <!--            STYLES             -->
@@ -88,7 +99,7 @@
             <Setter Property="BorderBrush" Value="{StaticResource Transparent}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="8,5"/>
-            <Setter Property="Height" Value="37"/>
+            <Setter Property="Height" Value="39"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ComboBox">
@@ -114,7 +125,7 @@
                                                         FontSize="{StaticResource FontSize}"
                                                         FontFamily="{StaticResource Font}"
                                                         VerticalAlignment="Center"
-                                                        Margin="8,0"/>
+                                                        Margin="10,0,7,0"/>
                                             <ContentPresenter Content="{TemplateBinding Content}"
                                                                 ContentTemplate="{TemplateBinding ContentTemplate}"
                                                                 Margin="{TemplateBinding Padding}"
@@ -380,73 +391,122 @@
         </Canvas>
 
         <!-- Top Modern UI -->
-        <Border Background="{StaticResource Background}" 
-                CornerRadius="9"
-                Width="Auto"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Top"
-                Margin="0,19,0,0"
-                Panel.ZIndex="2">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Cursor" Value="Arrow" />
-                </Style>
-            </Border.Style>
-            <StackPanel Orientation="Horizontal" Margin="8">
-                <!-- Commented out source language selection
-                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                    <TextBlock Text="From:" 
-                            Foreground="White" 
-                            VerticalAlignment="Center" 
-                            Margin="0,0,8,0"
-                            FontSize="13"/>
-                    <ComboBox Name="InputLang" 
-                            Width="120"
-                            Style="{StaticResource ModernComboBoxStyle}"/>
-                </StackPanel> -->
-                <!-- Dropdown -->
+        <Canvas x:Name="MainCanvas" Loaded="MainCanvas_Loaded">
+            <Border x:Name="TopUIBorder"
+                    Background="{StaticResource Background}"
+                    CornerRadius="9"
+                    Width="Auto"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top"
+                    Margin="0,19,0,0"
+                    Panel.ZIndex="2"
+                    Opacity="0"
+                    CacheMode="BitmapCache">
+
+                <!-- RenderTransform to allow translation -->
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="TopUITranslateTransform" Y="-75"/>
+                </Border.RenderTransform>
+
+                <!-- Animation -->
+                <Border.Triggers>
+                    <EventTrigger RoutedEvent="Border.Loaded">
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <!-- Fade in animation -->
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                               From="0" To="1" Duration="0:0:0.3" />
+                                <!-- Swipe down animation -->
+                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)"
+                               From="-50" To="0" Duration="0:0:0.15" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </EventTrigger>
+                </Border.Triggers>
+
+                <!-- Styles -->
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Cursor" Value="Arrow" />
+                    </Style>
+                </Border.Style>
+
+                <!-- Content -->
                 <StackPanel Orientation="Horizontal">
-                    <!-- <TextBlock Text="To:"
-                            Foreground="White"
-                            VerticalAlignment="Center"
-                            Margin="0,0,8,0"
-                            FontSize="13"/> -->
-                    <ComboBox Name="OutputLang" 
-                            Width="140"
-                            Style="{StaticResource ModernComboBoxStyle}"
-                            SelectionChanged="OutputLang_SelectionChanged"
-                            ItemContainerStyle="{StaticResource ModernComboBoxItemStyle}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding DisplayName}" 
-                                            Foreground="{StaticResource Foreground}"
-                                            FontSize="{StaticResource FontSizeSmall}"
-                                            FontFamily="{StaticResource Font}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <!-- Drag Handle -->
+                    <Border x:Name="DragHandle"
+                          Width="24"
+                          Height="34"
+                          Margin="4,0,-5,0"
+                          Background="Transparent"
+                          VerticalAlignment="Center"
+                          MouseLeftButtonDown="DragHandle_MouseLeftButtonDown"
+                          MouseMove="DragHandle_MouseMove"
+                          MouseLeftButtonUp="DragHandle_MouseLeftButtonUp">
+                        <Viewbox Width="16" Height="10" Margin="-5,22,0,0">
+                            <Path Height="16"
+                                  Fill="{StaticResource Foreground}"
+                                Data="M360-160q-33 0-56.5-23.5T280-240q0-33 23.5-56.5T360-320q33 0 56.5 23.5T440-240q0 33-23.5 56.5T360-160Zm240 0q-33 0-56.5-23.5T520-240q0-33 23.5-56.5T600-320q33 0 56.5 23.5T680-240q0 33-23.5 56.5T600-160ZM360-400q-33 0-56.5-23.5T280-480q0-33 23.5-56.5T360-560q33 0 56.5 23.5T440-480q0 33-23.5 56.5T360-400Zm240 0q-33 0-56.5-23.5T520-480q0-33 23.5-56.5T600-560q33 0 56.5 23.5T680-480q0 33-23.5 56.5T600-400ZM360-640q-33 0-56.5-23.5T280-720q0-33 23.5-56.5T360-800q33 0 56.5 23.5T440-720q0 33-23.5 56.5T360-640Zm240 0q-33 0-56.5-23.5T520-720q0-33 23.5-56.5T600-800q33 0 56.5 23.5T680-720q0 33-23.5 56.5T600-640Z"/>
+                        </Viewbox>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Margin="8,7">
+                        <!-- Commented out source language selection
+                        <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                            <TextBlock Text="From:" 
+                                    Foreground="White" 
+                                    VerticalAlignment="Center" 
+                                    Margin="0,0,8,0"
+                                    FontSize="13"/>
+                            <ComboBox Name="InputLang" 
+                                    Width="120"
+                                    Style="{StaticResource ModernComboBoxStyle}"/>
+                        </StackPanel> -->
+                        <!-- Dropdown -->
+                        <StackPanel Orientation="Horizontal">
+                            <!-- <TextBlock Text="To:"
+                                    Foreground="White"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,8,0"
+                                    FontSize="13"/> -->
+                            <ComboBox Name="OutputLang" 
+                                    Width="140"
+                                    Style="{StaticResource ModernComboBoxStyle}"
+                                    SelectionChanged="OutputLang_SelectionChanged"
+                                    ItemContainerStyle="{StaticResource ModernComboBoxItemStyle}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayName}" 
+                                                    Foreground="{StaticResource Foreground}"
+                                                    FontSize="{StaticResource FontSizeSmall}"
+                                                    FontFamily="{StaticResource Font}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                        <!-- Fullscreen -->
+                        <Button Style="{StaticResource ModernFullscreenButtonStyle}"
+                                Margin="6,0,0,0"
+                                Click="FullscreenButton_Click">
+                        </Button>
+                        <!-- Close -->
+                        <Button Style="{StaticResource ModernCloseButtonStyle}"
+                                Margin="6,0,0,0"
+                                Click="CloseButton_Click">
+                            <Viewbox Height="18" Width="18">
+                                <Path x:Name="ClosePath"
+                                      Width="12" 
+                                      Height="12"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                      StrokeThickness="1.25"
+                                      Data="M 2,2 L 10,10 M 10,2 L 2,10"/>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
                 </StackPanel>
-                <!-- Fullscreen -->
-                <Button Style="{StaticResource ModernFullscreenButtonStyle}"
-                        Margin="6,0,0,0"
-                        Click="FullscreenButton_Click">
-                </Button>
-                <!-- Close -->
-                <Button Style="{StaticResource ModernCloseButtonStyle}"
-                        Margin="6,0,0,0"
-                        Click="CloseButton_Click">
-                    <Viewbox Height="18" Width="18">
-                        <Path x:Name="ClosePath"
-                              Width="12" 
-                              Height="12"
-                              StrokeStartLineCap="Round"
-                              StrokeEndLineCap="Round"
-                              Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                              StrokeThickness="1.25"
-                              Data="M 2,2 L 10,10 M 10,2 L 2,10"/>
-                    </Viewbox>
-                </Button>
-            </StackPanel>
-        </Border>
+            </Border>
+        </Canvas>
     </Grid>
 </Window>
