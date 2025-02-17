@@ -88,5 +88,47 @@ namespace LangVision {
             }
             return result;
         }
+        public static async Task<Bitmap?> ProcessTranslationFromOCR(Bitmap region, List<OCR.OCRBlock> ocrBlocks, string sourceLang, string targetLang) {
+            if (region.Width <= 0 || region.Height <= 0) return null;
+            if (ocrBlocks.Count == 0) return null;
+
+            List<TranslatedText> translatedTexts = new List<TranslatedText>();
+
+            foreach (var block in ocrBlocks) {
+                if (block.Lines.Count == 1) {
+                    // Single-line block: translate the line directly.
+                    var line = block.Lines[0];
+                    string translatedLine = await Translation.TranslateText(line.LineText, sourceLang, targetLang);
+                    translatedLine = System.Web.HttpUtility.HtmlDecode(translatedLine);
+
+                    translatedTexts.Add(new TranslatedText {
+                        OriginalText = line.LineText,
+                        TranslatedTextValue = translatedLine,
+                        BoundingBox = line.BoundingBox,
+                        TextColor = line.Words.FirstOrDefault()?.TextColor ?? System.Drawing.Color.White,
+                        BackgroundColor = line.BackgroundColor
+                    });
+                } else {
+                    // Multi-line block: translate the entire block and then split it.
+                    string blockText = string.Join("\n", block.Lines.Select(l => l.LineText));
+                    string translatedBlock = await Translation.TranslateText(blockText, sourceLang, targetLang);
+                    translatedBlock = System.Web.HttpUtility.HtmlDecode(translatedBlock);
+                    string[] translatedLines = SplitTranslatedBlock(translatedBlock, block.Lines.Count);
+
+                    for (int i = 0; i < block.Lines.Count; i++) {
+                        var line = block.Lines[i];
+                        translatedTexts.Add(new TranslatedText {
+                            OriginalText = line.LineText,
+                            TranslatedTextValue = translatedLines[i],
+                            BoundingBox = line.BoundingBox,
+                            TextColor = line.Words.FirstOrDefault()?.TextColor ?? System.Drawing.Color.White,
+                            BackgroundColor = line.BackgroundColor
+                        });
+                    }
+                }
+            }
+
+            return OverlayRenderer.DrawTranslatedText(region, translatedTexts);
+        }
     }
 }

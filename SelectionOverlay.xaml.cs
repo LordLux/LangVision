@@ -11,8 +11,6 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.IO;
 
-
-// TODO scale word-line threashold based on text size
 // TODO if user changes language after selecting region, reprocess the region with the new language
 // TODO allow the user to select and copy the translated text
 // TODO add swipe-in animation to top ui
@@ -30,6 +28,9 @@ namespace LangVision {
         private bool isSelecting = false;
         private bool isClosing = false;
         private bool suppressSelectionChanged = false;
+
+        private Bitmap? cachedRegion;
+        private List<OCR.OCRBlock>? cachedOCRBlocks;
 
         public System.Drawing.Rectangle SelectedRegion { get; private set; }
 
@@ -208,15 +209,23 @@ namespace LangVision {
             var transformToDevice = source.CompositionTarget.TransformToDevice;
             var transformFromDevice = source.CompositionTarget.TransformFromDevice;
 
-            // Crop the selected region from the FrozenScreenImage instead of capturing again
+            // Crop the selected region from the frozen screen image
             Bitmap capturedRegion = CropFrozenScreen(region);
             if (capturedRegion == null) return;
 
-            // Get selected target language
+            // Cache the region
+            this.cachedRegion = capturedRegion;
+
+            // Get the current target language
             string targetLang = GetSelectedTargetLanguage();
 
-            // Process with selected language
-            var translatedImage = await Processing.ProcessRegionAndReturnImage(capturedRegion, "auto", targetLang);
+            // Run OCR on the region and cache the result
+            var ocrBlocks = await OCR.RecognizeTextBlocksFromRegion(capturedRegion);
+            if (ocrBlocks.Count == 0) return;
+            this.cachedOCRBlocks = ocrBlocks;
+
+            // Process translation using the cached OCR result
+            var translatedImage = await Processing.ProcessTranslationFromOCR(capturedRegion, ocrBlocks, "auto", targetLang);
 
             if (translatedImage != null) {
                 TranslatedImage.Source = ConvertBitmapToImageSource(translatedImage);
@@ -225,11 +234,9 @@ namespace LangVision {
                 // Transform screen coordinates back to WPF coordinates
                 var wpfPoint = transformFromDevice.Transform(new System.Windows.Point(region.X, region.Y));
 
-                // Correct the position and scaling using DPI transformation
+                // Set position and size according to DPI scaling
                 Canvas.SetLeft(TranslatedImage, wpfPoint.X);
                 Canvas.SetTop(TranslatedImage, wpfPoint.Y);
-
-                // Adjust width and height for DPI scaling
                 TranslatedImage.Width = region.Width / transformToDevice.M11;
                 TranslatedImage.Height = region.Height / transformToDevice.M22;
             }
@@ -328,11 +335,21 @@ namespace LangVision {
         }
 
         /// <summary> Save the selected target language to the registry </summary>
-        private void OutputLang_SelectionChanged(object sender, SelectionChangedEventArgs e) {
+        private async void OutputLang_SelectionChanged(object sender, SelectionChangedEventArgs e) {
             if (!suppressSelectionChanged && OutputLang.SelectedItem is LanguageItem selectedItem) {
+                // Save the selected language to settings
                 SettingsManager.SaveTargetLanguage(selectedItem.Code);
+
+                // If a region has been processed before, re-run translation only.
+                if (cachedRegion != null && cachedOCRBlocks != null) {
+                    var translatedImage = await Processing.ProcessTranslationFromOCR(cachedRegion, cachedOCRBlocks, "auto", selectedItem.Code);
+                    if (translatedImage != null) {
+                        TranslatedImage.Source = ConvertBitmapToImageSource(translatedImage);
+                    }
+                }
             }
         }
+
 
         /// <summary> Close button </summary>
         private void CloseButton_Click(object sender, RoutedEventArgs e) {
