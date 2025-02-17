@@ -12,8 +12,14 @@ using System.Windows.Media.Imaging;
 using System.IO;
 
 
+// TODO scale word-line threashold based on text size
 // TODO if user changes language after selecting region, reprocess the region with the new language
 // TODO allow the user to select and copy the translated text
+// TODO add swipe-in animation to top ui
+// TODO replace bounding box color fill with actual text removal overlay using LaMa
+// TODO let user move top ui to snap to 4 sides
+// TODO implement local ocr and translation
+// TODO detect when no internet -> fallback to local
 // TODO make program background process and not create a window
 
 namespace LangVision {
