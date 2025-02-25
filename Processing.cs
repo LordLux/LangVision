@@ -66,7 +66,7 @@ namespace LangVision {
                 }
             }
 
-            return OverlayRenderer.DrawTranslatedText(region, translatedTexts);
+            return OverlayRenderer.DrawFinalOverlay(region, translatedTexts);
         }
         private static string[] SplitTranslatedBlock(string translatedBlock, int lineCount) {
             // If the translated block contains newline characters, split on them.
@@ -128,7 +128,7 @@ namespace LangVision {
                 }
             }
 
-            return OverlayRenderer.DrawTranslatedText(region, translatedTexts);
+            return OverlayRenderer.DrawFinalOverlay(region, translatedTexts);
         }
     }
 }

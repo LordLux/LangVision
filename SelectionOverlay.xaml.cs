@@ -12,9 +12,8 @@ using System.Windows.Media.Imaging;
 using System.IO;
 
 // TODO allow the user to select and copy the translated text
-// TODO add swipe-in animation to top ui
 // TODO replace bounding box color fill with actual text removal overlay using LaMa
-// TODO let user move top ui to snap to 4 sides
+// TODO if text bounding box's length < height, rotate the text 90 degrees
 // TODO implement local ocr and translation
 // TODO detect when no internet -> fallback to local
 // TODO make program background process and not create a window
@@ -234,17 +233,17 @@ namespace LangVision {
             var startPointScreen = transformToDevice.Transform(startPoint);
             var endPointScreen = transformToDevice.Transform(endPoint);
 
-            int x = (int)Math.Min(startPointScreen.X, endPointScreen.X);
-            int y = (int)Math.Min(startPointScreen.Y, endPointScreen.Y);
+            int x = (int)Math.Min(startPointScreen.X, endPointScreen.X) + 9;
+            int y = (int)Math.Min(startPointScreen.Y, endPointScreen.Y) + 1;
             int width = (int)Math.Abs(startPointScreen.X - endPointScreen.X);
             int height = (int)Math.Abs(startPointScreen.Y - endPointScreen.Y);
 
             // Store the selected region with margin adjustment
             return new System.Drawing.Rectangle(
-                x - Capture.xMargin,
-                y - Capture.yMargin,
-                width,
-                height
+                x - Capture.xMargin - 5,
+                y - Capture.yMargin - 5,
+                width + 10,
+                height + 10
             );
         }
 
@@ -343,18 +342,27 @@ namespace LangVision {
         /// <summary> Initializes the language dropdowns with supported languages. </summary>
         private void InitializeLanguageDropdowns() {
             var languages = new Dictionary<string, string> {
-            {"en", "English"},
-            {"es", "Spanish"},
-            {"fr", "French"},
-            {"de", "German"},
-            {"it", "Italian"},
-            {"pt", "Portuguese"},
-            {"ru", "Russian"},
-            {"ja", "Japanese"},
-            {"ko", "Korean"},
-            {"zh-CN", "Chinese (Simplified)"}
-            // Add more languages as needed
-        };
+                {"ar", "Arabic"},
+                {"zh-CN", "Chinese"},
+                {"cs", "Czech"},
+                {"nl", "Dutch"},
+                {"en", "English"},
+                {"fr", "French"},
+                {"de", "German"},
+                {"hi", "Hindi"},
+                {"id", "Indonesian"},
+                {"it", "Italian"},
+                {"ja", "Japanese"},
+                {"ko", "Korean"},
+                {"pl", "Polish"},
+                {"pt", "Portuguese"},
+                {"ru", "Russian"},
+                {"es", "Spanish"},
+                {"th", "Thai"},
+                {"tr", "Turkish"},
+                {"uk", "Ukrainian"},
+                {"vi", "Vietnamese"}
+            };
 
             // Source language (auto-detect)
             //InputLang.Items.Add(new LanguageItem("auto", "Auto-detect"));
@@ -437,7 +445,7 @@ namespace LangVision {
                 // Get current mouse position relative to the Canvas.
                 System.Windows.Point currentPos = e.GetPosition(MainCanvas);
                 double newLeft = currentPos.X - _mouseOffset.X;
-                double newTop = currentPos.Y - _mouseOffset.Y;
+                double newTop = currentPos.Y - _mouseOffset.Y - 19;
 
                 Canvas.SetLeft(TopUIBorder, newLeft);
                 Canvas.SetTop(TopUIBorder, newTop);
