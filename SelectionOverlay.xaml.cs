@@ -10,6 +10,7 @@ using System.Transactions;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.IO;
+using System.Drawing.Imaging;
 
 // TODO allow the user to select and copy the translated text
 // TODO replace bounding box color fill with actual text removal overlay using LaMa
@@ -282,7 +283,7 @@ namespace LangVision {
                 Canvas.SetLeft(TranslatedImage, wpfPoint.X);
                 Canvas.SetTop(TranslatedImage, wpfPoint.Y);
                 TranslatedImage.Width = region.Width / transformToDevice.M11;
-                TranslatedImage.Height = region.Height / transformToDevice.M22;
+                TranslatedImage.Height = (region.Height / transformToDevice.M22) + 1 + 5; // padding
             }
         }
 
@@ -291,13 +292,25 @@ namespace LangVision {
         //// HELPER FUNCTIONS
         // <summary> Crops the selected region from the frozen screen image instead of recapturing </summary>
         private Bitmap CropFrozenScreen(System.Drawing.Rectangle region) {
-            // Convert FrozenScreenImage (BitmapImage) to Bitmap
-            Bitmap fullScreenshot = ConvertBitmapImageToBitmap((BitmapImage)FrozenScreenImage.Source);
+            Bitmap? fullScreenshot = null;
+            try {
+                // Convert FrozenScreenImage (BitmapImage) to Bitmap
+                fullScreenshot = ConvertBitmapImageToBitmap((BitmapImage)FrozenScreenImage.Source);
 
-            // Crop the region
-            Bitmap croppedImage = fullScreenshot.Clone(region, fullScreenshot.PixelFormat);
+                // Create a new bitmap with the exact region
+                Bitmap croppedImage = new Bitmap(region.Width, region.Height, fullScreenshot.PixelFormat);
 
-            return croppedImage;
+                using (Graphics g = Graphics.FromImage(croppedImage)) {
+                    g.DrawImage(fullScreenshot,
+                        new System.Drawing.Rectangle(0, 0, region.Width, region.Height),
+                        region,
+                        GraphicsUnit.Pixel);
+                }
+
+                return croppedImage;
+            } finally {
+                fullScreenshot?.Dispose();
+            }
         }
 
         /// <summary> Converts a Bitmap to a BitmapImage (WPF format) </summary>
@@ -395,7 +408,7 @@ namespace LangVision {
 
                 // If a region has been processed before, re-run translation only.
                 if (cachedRegion != null && cachedOCRBlocks != null) {
-                    var translatedImage = await Processing.ProcessTranslationFromOCR(cachedRegion, cachedOCRBlocks, "auto", selectedItem.Code);
+                    var translatedImage = await Processing.ProcessTranslationFromOCR(cachedRegion, cachedOCRBlocks, "auto", selectedItem.Code); // directly use selectedItem.Code as we've just updated it to the correct value
                     if (translatedImage != null) {
                         TranslatedImage.Source = ConvertBitmapToImageSource(translatedImage);
                     }

@@ -16,58 +16,6 @@ namespace LangVision {
             public Color BackgroundColor { get; set; }
         }
 
-        /// <summary>
-        /// Processes OCR and translation for a given screen region and returns the translated image.
-        /// </summary>
-        public static async Task<Bitmap?> ProcessRegionAndReturnImage(Bitmap region, string sourceLang, string targetLang) {
-            if (region.Width <= 0 || region.Height <= 0) return null;
-
-            // Perform OCR, now returning a list of OCRBlock objects.
-            List<OCRBlock> ocrBlocks = await OCR.RecognizeTextBlocksFromRegion(region);
-            if (ocrBlocks.Count == 0) return null;
-
-            List<TranslatedText> translatedTexts = new List<TranslatedText>();
-
-            foreach (var block in ocrBlocks) {
-                if (block.Lines.Count == 1) {
-                    // For single-line blocks, translate each line individually.
-                    var line = block.Lines[0];
-                    string translatedLine = await Translation.TranslateText(line.LineText, sourceLang, targetLang);
-
-                    translatedLine = HttpUtility.HtmlDecode(translatedLine);
-
-                    translatedTexts.Add(new TranslatedText {
-                        OriginalText = line.LineText,
-                        TranslatedTextValue = translatedLine,
-                        BoundingBox = line.BoundingBox,
-                        TextColor = line.Words.FirstOrDefault()?.TextColor ?? Color.White,
-                        BackgroundColor = line.BackgroundColor
-                    });
-                } else {
-                    // For multi-line blocks, translate the entire block and then split.
-                    // Preserve newline boundaries if possible.
-                    string blockText = string.Join("\n", block.Lines.Select(l => l.LineText));
-                    string translatedBlock = await Translation.TranslateText(blockText, sourceLang, targetLang);
-
-                    translatedBlock = HttpUtility.HtmlDecode(translatedBlock);
-
-                    // Split the translated block into N lines (where N = block.Lines.Count).
-                    string[] translatedLines = SplitTranslatedBlock(translatedBlock, block.Lines.Count);
-                    for (int i = 0; i < block.Lines.Count; i++) {
-                        var line = block.Lines[i];
-                        translatedTexts.Add(new TranslatedText {
-                            OriginalText = line.LineText,
-                            TranslatedTextValue = translatedLines[i],
-                            BoundingBox = line.BoundingBox,
-                            TextColor = line.Words.FirstOrDefault()?.TextColor ?? Color.White,
-                            BackgroundColor = line.BackgroundColor
-                        });
-                    }
-                }
-            }
-
-            return OverlayRenderer.DrawFinalOverlay(region, translatedTexts);
-        }
         private static string[] SplitTranslatedBlock(string translatedBlock, int lineCount) {
             // If the translated block contains newline characters, split on them.
             string[] split = translatedBlock.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -88,6 +36,7 @@ namespace LangVision {
             }
             return result;
         }
+
         public static async Task<Bitmap?> ProcessTranslationFromOCR(Bitmap region, List<OCR.OCRBlock> ocrBlocks, string sourceLang, string targetLang) {
             if (region.Width <= 0 || region.Height <= 0) return null;
             if (ocrBlocks.Count == 0) return null;
