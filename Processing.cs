@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using static LangVision.OCR;
@@ -37,8 +38,26 @@ namespace LangVision {
             // Calculate relative widths of the original lines to determine how to distribute text
             int totalWidth = originalLines.Sum(line => line.BoundingBox.Width);
 
+            // Regular expression to detect list-like prefixes
+            // Includes:
+            // - Numbers (1., 2., etc.)
+            // - Bullet points (•, -, *, ●)
+            // - Unicode (◆, ►, ✓, etc.)
+            // - Alphanum markers (a., A., i., etc.)
+            Regex ListPrefixRegex = new Regex(@"^(\d+\.|[•\-*●◆►✓✔✕✖✗✘➤➢➣]+|\p{L}\.)\s", RegexOptions.Compiled);
+
             // Prepare result array
             string[] result = new string[originalLines.Count];
+
+            // Flag to track if we've detected a list-like structure
+            bool[] isListLine = new bool[originalLines.Count];
+
+            // First pass: Detect list-like lines
+            for (int i = 0; i < originalLines.Count; i++) {
+                // Check if the original line starts with a list-like prefix
+                string firstWord = words.Length > i ? words[i] : "";
+                isListLine[i] = ListPrefixRegex.IsMatch(firstWord + " ");
+            }
 
             // Distribute words based on relative width
             int wordIndex = 0;
@@ -52,11 +71,16 @@ namespace LangVision {
                 // Don't assign more words than we have left
                 wordCount = Math.Min(wordCount, totalWords - wordIndex);
 
-                // Join words and add to result
-                result[i] = string.Join(" ", words.Skip(wordIndex).Take(wordCount));
-
-                // Move to next set of words
-                wordIndex += wordCount;
+                // For list-like lines, try to preserve the list marker and first word together
+                if (isListLine[i] && wordIndex < words.Length) {
+                    // Ensure the list marker and first word are kept together
+                    result[i] = string.Join(" ", words.Skip(wordIndex).Take(2));
+                    wordIndex += 2;
+                } else {
+                    // Join words and add to result
+                    result[i] = string.Join(" ", words.Skip(wordIndex).Take(wordCount));
+                    wordIndex += wordCount;
+                }
             }
 
             return result;

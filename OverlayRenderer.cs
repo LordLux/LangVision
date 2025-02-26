@@ -7,6 +7,8 @@ using System.Drawing.Text;
 using System.IO;
 using System.Windows.Media.TextFormatting;
 
+// TODO bullet points not getting detected correctly -> incorrect line splitting and merging
+
 namespace LangVision {
     internal static class OverlayRenderer {
         private const float MIN_FONT_SIZE = 1.0f;
@@ -163,11 +165,11 @@ namespace LangVision {
         }
 
 
+
         /// <summary>
         /// Draws text only with specified font size
         /// </summary>
-        private static void DrawTextOnly(
-            Graphics g, string text, Rectangle boundingBox, Color textColor, float fontSize = 0) {
+        private static void DrawTextOnly(Graphics g, string text, Rectangle boundingBox, Color textColor, float fontSize = 0) {
             if (string.IsNullOrWhiteSpace(text)) return;
 
             // If no specific font size provided, calculate optimal
