@@ -11,8 +11,9 @@ namespace LangVision {
     internal static class OverlayRenderer {
         private const float MIN_FONT_SIZE = 1.0f;
         private const float MAX_FONT_SIZE = 72.0f;
-        private const float INITIAL_SIZE_RATIO = 0.9f;
-        private const float WIDTH_MARGIN = 0.999f; // Allow text to use 98% of the box width
+        private const float WIDTH_MARGIN = 0.98f; // Allow text to use 98% of the box width
+        private const float HEIGHT_MARGIN = 0.90f; // Allow text to use 90% of the box height
+        private const float BLOCK_FONT_CONSISTENCY_RATIO = 0.85f; // How consistent fonts should be in a block
 
 
         private static bool IsValidBoundingBox(Rectangle box) {
@@ -24,39 +25,40 @@ namespace LangVision {
         /// Calculates the optimal font size to fit text within the given bounds
         /// </summary>
         private static float CalculateOptimalFontSize(Graphics g, string text, Rectangle bounds) {
-            // Define a minimum and maximum font size.
-            float minSize = MIN_FONT_SIZE;
-            float maxSize = bounds.Height;
+            if (string.IsNullOrWhiteSpace(text) || bounds.Width <= 0 || bounds.Height <= 0)
+                return MIN_FONT_SIZE;
 
-            // The maximum size is the available height.
+            // Define effective bounds with margins
+            float effectiveWidth = bounds.Width * WIDTH_MARGIN;
+            float effectiveHeight = bounds.Height * HEIGHT_MARGIN;
+
+            // Define a minimum and maximum font size
+            float minSize = MIN_FONT_SIZE;
+            float maxSize = Math.Min(MAX_FONT_SIZE, bounds.Height);
+
+            // Start with minimum size
             float optimalSize = minSize;
 
-            // Binary search loop: iterate until the difference between max and min is small.
+            // Binary search loop: iterate until the difference between max and min is small
             while (maxSize - minSize > 0.5f) {
                 float testSize = (minSize + maxSize) / 2;
                 using (var testFont = LoadCustomFont(testSize, FontStyle.Regular)) {
-                    // Measure the text dimensions with the test font.
+                    // Measure the text dimensions with the test font
                     SizeF textSize = g.MeasureString(text, testFont);
-                    // Check if the text fits within the bounding box.
-                    if (textSize.Width <= bounds.Width) {
-                        // If no overflow horizontally, check height usage
-                        float neededHeight = bounds.Height;
-                        if (textSize.Height < neededHeight) {
-                            optimalSize = testSize;
-                            // Try increasing the size for maximum utilization
-                            minSize = testSize + 0.1f;
-                        } else {
-                            // If height is exceeded, reduce the size
-                            maxSize = testSize - 0.1f;
-                        }
+
+                    // Check if the text fits within both width and height constraints
+                    if (textSize.Width <= effectiveWidth && textSize.Height <= effectiveHeight) {
+                        // Text fits, try a larger size
+                        optimalSize = testSize;
+                        minSize = testSize + 0.1f;
                     } else {
-                        // If overflow horizontally, reduce the size
+                        // Text doesn't fit, try a smaller size
                         maxSize = testSize - 0.1f;
                     }
                 }
             }
 
-            return optimalSize - 2;
+            return optimalSize + 2;
         }
 
         private static Font LoadCustomFont(float fontSize, FontStyle fontStyle) {
@@ -86,7 +88,9 @@ namespace LangVision {
             return Color.FromArgb(color.A, r, g, b);
         }
 
-        /// <summary> Draws bounding box for the given translated texts </summary>
+        /// <summary>
+        /// Draws bounding box for the given translated texts
+        /// </summary>
         public static Bitmap DrawBoundingBoxes(Bitmap baseImage, List<Processing.TranslatedText> translatedTexts) {
             Bitmap boxesLayer = new Bitmap(baseImage.Width, baseImage.Height);
             using (Graphics g = Graphics.FromImage(boxesLayer)) {
@@ -109,7 +113,9 @@ namespace LangVision {
             return boxesLayer;
         }
 
-        /// <summary> Draws translated text layer </summary>
+        /// <summary>
+        /// Draws translated text layer with consistent font sizes within blocks
+        /// </summary>
         public static Bitmap DrawTranslatedTextLayer(Bitmap baseImage, List<Processing.TranslatedText> translatedTexts) {
             Bitmap textLayer = new Bitmap(baseImage.Width, baseImage.Height);
             using (Graphics g = Graphics.FromImage(textLayer)) {
@@ -117,38 +123,101 @@ namespace LangVision {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                foreach (var text in translatedTexts) {
-                    if (!IsValidBoundingBox(text.BoundingBox)) continue;
-                    DrawTextOnly(g, text.TranslatedTextValue ?? "", text.BoundingBox, text.TextColor);
+
+                // Group texts by block ID for consistent font sizing
+                var textsByBlock = translatedTexts
+                    .Where(t => IsValidBoundingBox(t.BoundingBox))
+                    .GroupBy(t => t.BlockId)
+                    .ToList();
+
+                foreach (var block in textsByBlock) {
+                    // Calculate optimal font size for each line in the block
+                    var linesWithOptimalFontSizes = block
+                        .Select(text => new {
+                            Text = text,
+                            OptimalFontSize = CalculateOptimalFontSize(g, text.TranslatedTextValue ?? "", text.BoundingBox)
+                        })
+                        .ToList();
+
+                    // Find the minimum font size that would work across all lines in the block
+                    // But don't let the smallest dictate completely - use a weighted approach
+                    float minFontSize = linesWithOptimalFontSizes.Min(x => x.OptimalFontSize);
+                    float maxFontSize = linesWithOptimalFontSizes.Max(x => x.OptimalFontSize);
+
+                    // Use a blend between min and midpoint to avoid too small fonts
+                    float consistentFontSize = minFontSize;
+                    if (linesWithOptimalFontSizes.Count > 1) {
+                        float midpoint = (minFontSize + maxFontSize) / 2;
+                        consistentFontSize = minFontSize * BLOCK_FONT_CONSISTENCY_RATIO +
+                                            midpoint * (1 - BLOCK_FONT_CONSISTENCY_RATIO);
+                    }
+
+                    // Render each line with the consistent font size
+                    foreach (var line in linesWithOptimalFontSizes) {
+                        DrawTextOnly(g, line.Text.TranslatedTextValue ?? "", line.Text.BoundingBox,
+                                   line.Text.TextColor, consistentFontSize);
+                    }
                 }
             }
             return textLayer;
         }
 
-        /// <summary> Draws text only </summary>
-        private static void DrawTextOnly(Graphics g, string text, Rectangle boundingBox, Color textColor) {
+
+        /// <summary>
+        /// Draws text only with specified font size
+        /// </summary>
+        private static void DrawTextOnly(
+            Graphics g, string text, Rectangle boundingBox, Color textColor, float fontSize = 0) {
             if (string.IsNullOrWhiteSpace(text)) return;
-            float fontSize = CalculateOptimalFontSize(g, text, boundingBox);
 
-            using (Font font = LoadCustomFont(fontSize + 8, FontStyle.Regular)) {
+            // If no specific font size provided, calculate optimal
+            if (fontSize <= 0) {
+                fontSize = CalculateOptimalFontSize(g, text, boundingBox);
+            }
+
+            // Use the calculated font size
+            using (Font font = LoadCustomFont(fontSize, FontStyle.Regular)) {
+                // Measure text with the final font to position correctly
                 SizeF textSize = g.MeasureString(text, font);
-                float yOffset = ((boundingBox.Height - textSize.Height) / 2) + (4.5f + 3f); // Center vertically
-                // no x offset, text aligns based on bounding box width
-                RectangleF textRect = new RectangleF(boundingBox.X, boundingBox.Y + yOffset - 6, boundingBox.Width, textSize.Height);
 
+                // Calculate position to center text vertically and horizontally
+                //float xOffset = (boundingBox.Width - textSize.Width) / 2;
+                float yOffset = (boundingBox.Height - textSize.Height) / 2;
+
+                // Create a rectangle for text positioning
+                RectangleF textRect = new RectangleF(
+                    boundingBox.X,
+                    boundingBox.Y + yOffset,
+                    textSize.Width,
+                    textSize.Height
+                );
+
+                // Create path for text drawing with proper alignment
                 using (GraphicsPath path = new GraphicsPath()) {
                     using (StringFormat sf = new StringFormat() {
-                        Alignment = StringAlignment.Near,
-                        LineAlignment = StringAlignment.Near,
-                        FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.NoClip,
-                        Trimming = StringTrimming.None
+                        Alignment = StringAlignment.Center,
+                        LineAlignment = StringAlignment.Center,
+                        FormatFlags = StringFormatFlags.NoWrap,
+                        Trimming = StringTrimming.EllipsisCharacter
                     }) {
-                        path.AddString(text, font.FontFamily, (int)font.Style, font.Size, textRect, sf);
+                        // Add text to path with proper positioning
+                        path.AddString(
+                            text,
+                            font.FontFamily,
+                            (int)font.Style,
+                            font.Size,
+                            textRect,
+                            sf
+                        );
                     }
+
+                    // Draw text outline
                     using (Pen outlinePen = new Pen(DarkenColor(textColor, 40), 1.5f) { LineJoin = LineJoin.Round }) {
                         g.SmoothingMode = SmoothingMode.AntiAlias;
                         g.DrawPath(outlinePen, path);
                     }
+
+                    // Fill text
                     using (SolidBrush textBrush = new SolidBrush(textColor)) {
                         g.FillPath(textBrush, path);
                     }
@@ -156,7 +225,10 @@ namespace LangVision {
             }
         }
 
-        /// <summary> Draws the final overlay </summary>
+
+        /// <summary>
+        /// Draws the final overlay
+        /// </summary>
         public static Bitmap DrawFinalOverlay(Bitmap baseImage, List<Processing.TranslatedText> translatedTexts) {
             Bitmap boxesLayer = DrawBoundingBoxes(baseImage, translatedTexts);
             Bitmap textLayer = DrawTranslatedTextLayer(baseImage, translatedTexts);

@@ -367,16 +367,15 @@
     <!--             LAYOUT             -->
     <Grid Name="OverlayGrid">
         <!-- Frozen screen image in bg -->
-        <Image Name="FrozenScreenImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+        <Image Name="FrozenScreenImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor" Panel.ZIndex="0"/>
 
-        <Image Name="TranslatedBgImage" Visibility="Hidden" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+        <Image Name="TranslatedBgImage" Visibility="Hidden" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor" Panel.ZIndex="0"/>
 
         <!-- Semi-transparent overlay -->
-        <Rectangle Name="OverlayBackground" Fill="Black" Opacity="0.5"/>
+        <Rectangle Name="OverlayBackground" Fill="Black" Opacity="0.5" Panel.ZIndex="1"/>
 
         <!-- Selection and translation layer -->
-        <Canvas Name="SelectionCanvas" 
-                Panel.ZIndex="1">
+        <Canvas Name="SelectionCanvas" Panel.ZIndex="2">
             <!-- Translated text overlay (only shows the text, not the captured region) -->
             <Image Name="TranslatedImage" 
                         Visibility="Hidden" 
@@ -391,7 +390,7 @@
         </Canvas>
 
         <!-- Top Modern UI -->
-        <Canvas x:Name="MainCanvas" Loaded="MainCanvas_Loaded">
+        <Canvas x:Name="MainCanvas" Loaded="MainCanvas_Loaded" Panel.ZIndex="100">
             <Border x:Name="TopUIBorder"
                     Background="{StaticResource Background}"
                     CornerRadius="9"
@@ -399,7 +398,6 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Top"
                     Margin="0,19,0,0"
-                    Panel.ZIndex="10"
                     Opacity="0"
                     CacheMode="BitmapCache">
 
